@@ -140,6 +140,40 @@ they are evaluated inside a run on the same signals.
 Windows and seed are separate parts of the signal-cache key (§8.3), so strategy, execution
 and benchmark settings never invalidate cached signals.
 
+### M1 — data loading
+
+**I8 — Cache path includes the dataset.** Spec: `data/raw/{venue}/{symbol}/{YYYY-MM-DD}.parquet`.
+Code: `data/raw/{venue}/{symbol}/{dataset}/{YYYY-MM-DD}.parquet`, so `aggTrades` and `trades`
+can be cached side by side (U1). Files are written atomically (temporary file, then rename)
+with zstd compression. The parquet metadata stores provenance and coverage: source URL,
+sha256 of the verified zip, trade count, trades dropped outside the UTC day, first/last
+timestamp and the longest gap between trades.
+
+**I9 — No REST fallback.** Spec §3.1 lists `GET /fapi/v1/aggTrades` as a fallback for recent
+days. Not implemented: the archive covers the whole study period (the last day, 2026-09-26,
+was already published on 2026-09-27), and a REST download of one day needs ~1,600 paginated
+requests. `DataSource` is the extension point if it is needed later.
+
+**I10 — Standard columns from `aggTrades`.** `trade_id` = `agg_trade_id`, `qty` = `quantity`,
+`ts_ns` = `transact_time`. Files with and without a header row are both accepted. The
+timestamp unit (ms, µs or ns) is detected from its magnitude, because some Binance archives
+(spot, from 2025) use microseconds; the futures files in this study use milliseconds.
+
+**I11 — Trades outside the UTC day are dropped and counted** (`n_outside_day` in the
+metadata and coverage report). Ties in time are ordered by trade id.
+
+**I12 — Memory.** `DataStore.get_days` returns a list as specified, but a year of trades does
+not fit in memory, so `iter_days` streams days; later milestones cache bars per day instead
+of trades.
+
+**I13 — Containers.** `BarSeries` gets an extra column `ts_start_ns` (first trade of the bar),
+needed for the latency option (U2). `DayData` is immutable; preprocessing steps return a
+copy with more fields filled, so the causality harness can compare outputs safely.
+
+**I14 — Synthetic source.** Deterministic per `(seed, day)`, millisecond timestamps (so ties
+occur as on Binance), prices from a `PriceModel`. M1 ships a random-walk model with a
+one-tick spread; a Hawkes-driven price model plugs into the same interface at M6.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie

@@ -34,6 +34,15 @@ For the exact package versions used for the results, install from `requirements-
 
 Results go to `results/<experiment>/<run_id>/` (not committed); downloaded data to `data/`.
 
+Download and cache the study period (about 4 GB of parquet), then write the coverage report:
+
+```bash
+.venv/bin/python -m experiments.download_data --config experiments/configs/base.yaml
+.venv/bin/python -m experiments.data_report --config experiments/configs/base.yaml
+```
+
+Run the tests:
+
 ```bash
 .venv/bin/python -m pytest
 ```
@@ -59,7 +68,7 @@ Results go to `results/<experiment>/<run_id>/` (not committed); downloaded data 
 | Milestone | Content | State |
 |---|---|---|
 | M0 | skeleton, config system, CLI, design-decisions log | done |
-| M1 | data loading and parquet store | |
+| M1 | data loading and parquet store | done — [coverage](docs/reports/m1_data_coverage.md) |
 | M2 | baseline preprocessing, causality harness | |
 | M3 | SNN engine and profiling | |
 | M4 | paper SNN signal model, spike evaluator | |
