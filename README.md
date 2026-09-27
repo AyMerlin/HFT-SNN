@@ -61,6 +61,7 @@ Run the tests:
 | `snn_hft/strategy` | the paper's direction rules and execution |
 | `snn_hft/backtest` | walk-forward backtester, performance, result store |
 | `snn_hft/analysis` | comparison tables, statistics, plots |
+| `snn_hft/testing` | causality harness |
 | `experiments/` | CLI and YAML configs |
 
 ## Status
@@ -69,7 +70,7 @@ Run the tests:
 |---|---|---|
 | M0 | skeleton, config system, CLI, design-decisions log | done |
 | M1 | data loading and parquet store | done — [coverage](docs/reports/m1_data_coverage.md) |
-| M2 | baseline preprocessing, causality harness | |
+| M2 | baseline preprocessing, causality harness | done |
 | M3 | SNN engine and profiling | |
 | M4 | paper SNN signal model, spike evaluator | |
 | M5 | strategies, backtester, E1 | |

@@ -103,6 +103,18 @@ almost every time step. The model can still learn direction and size effects, bu
 may attribute most events to the background rate, which would shrink the R-STDP rewards
 towards 0. Alternatives (e.g. a causal event threshold) need the author's approval.
 
+**U7 — Each model tunes `new_mean` independently (2026-09-28).**
+Spec conflict: plan §0 principle 4 and §6.4.3 require the same `new_mean` for both models so
+their mean input firing rates match; plan §12 lists `new_mean` among the parameters each model
+tunes on the same grid.
+Decision: each model tunes `new_mean` independently on the same grid, like the other shared
+parameters (`models.*.input.new_mean`). The improved model's `IntensityRateScaler` uses the
+improved model's own value.
+Consequence: mean input rates are no longer matched by construction. The realised mean input
+firing rate of both models is logged per day (`input_stats.csv`), so any difference is visible.
+Proposed for the M8 check-in: a control run of the improved model at the baseline's tuned
+`new_mean`, which separates the input-rate effect from the effect of the Hawkes memory.
+
 ---
 
 ## [I] Implementation decisions
@@ -174,6 +186,31 @@ copy with more fields filled, so the causality harness can compare outputs safel
 occur as on Binance), prices from a `PriceModel`. M1 ships a random-walk model with a
 one-tick spread; a Hawkes-driven price model plugs into the same interface at M6.
 
+### M2 — baseline preprocessing and causality harness
+
+**I15 — Days enter a pipeline as trades.** `DayData.trades` holds the day's `TradeFrame`;
+`VWAPBarAggregator` replaces it by `bars` (trades are dropped unless `keep_trades=True`),
+so a pipeline never holds more than one day's raw trades per day in memory.
+
+**I16 — Normalisation statistics.** `mean` and `stdev` are pooled over all bars with a price
+difference in all training days (not averaged per day). `stdev` is the population standard
+deviation (ddof = 0); with ≥ 20k bars per day the choice is immaterial.
+
+**I17 — Bar 0 carries no input.** The first bar of each day has no price difference, so its
+spike probability is 0 on both channels. The paper does not say how it handles bar 0.
+
+**I18 — Causality harness** (`snn_hft/testing/causality.py`). For each tested bar `t` it
+perturbs the evaluated day after bar `t` and every later day entirely, in three ways (new
+values, truncated day, remainder replaced by a different number of trades), and requires
+every output up to bar `t` to be bit-identical. Tests show that it detects both the
+paper-literal `stats_source = "same_day"` option (which uses the day's future bars, see P4) and
+a step fitted on later days. The same harness will cover the Hawkes steps (M7) and the signal
+models (M4, M8). It was also run on real days (2025-10-18, 80k bars; 2025-11-21, 592k bars).
+
+Real-data check (fit 2025-10-17, transform 2025-10-18): realised mean input probability 0.201
+(X1) and 0.200 (X2) for `new_mean = 0.2`; 0.2 % of bars clipped at 0, 0.02 % at 1; 35 % of bars
+lie within ±0.02 of `new_mean`, i.e. most bars produce nearly the same input on both channels.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie
@@ -191,9 +228,6 @@ one-tick spread; a Hawkes-driven price model plugs into the same interface at M6
 
 ## [O] Open questions
 
-**O1 — Tuning `new_mean` vs matched input firing rate.** Plan §6.4.3 requires both models to
-use the same `new_mean` so mean input rates match; plan §12 lists `new_mean` among the
-parameters each model tunes on the same grid, which can yield different values.
-Proposed: tune `new_mean` for the baseline and reuse that value for the improved model, which
-spends the same trial budget on `γ` and `tau_z_bars` instead. This is conservative for the
-improved model. Needs the author's decision before tuning (M5).
+None at the moment. Resolved questions move to [U].
+
+**O1 → resolved as U7 (2026-09-28).**
