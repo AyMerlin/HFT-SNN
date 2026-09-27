@@ -254,14 +254,48 @@ With the untuned §12 defaults the output neuron fires in 91–96 % of bars (out
 health-check band), which tuning addresses in M5; with random rewards and `γ = 1` the R-STDP
 pools went silent within one day, which is examined with the real rewards in M8.
 
+### M4 — paper SNN signal model and spike evaluator
+
+**I27 — Shared SNN signal plumbing.** `SNNSignalModel` owns preprocessing, encoding,
+simulation and signal extraction; `PaperSNNSignalModel` only supplies the paper pipeline and
+topology (the improved model will do the same). `fit` simulates the training days in
+chronological order with learning on and records their signals for the training-day spike
+metrics; `generate` simulates the test day with learning off (`core.learn_during_test`).
+
+**I28 — Seeds.** Every random draw comes from a named stream `rng_for(seed, purpose, day, epoch)`:
+initial weights depend on the seed only (the same in every fold), encoder spikes on seed,
+purpose (train/test), day and epoch. A training day therefore gets the same spikes in every fold
+that contains it, and both models use the same seeds.
+
+**I29 — Evaluation bars are built outside the models** with the shared `VWAPBarAggregator`,
+so the spike evaluator and the strategies never depend on a model's internals.
+
+**I30 — Spike evaluation details.** A bar is evaluable if both windows fit into the day
+(`w ≤ t ≤ n − 2 − w`); the same set is used for real/fake and momentum/reversion, so both have
+one denominator. Window means are computed per window, and price differences within 1e-12 of
+the price are treated as zero (flat prices → momentum). The chance level is reported exactly as
+the share of real bars among evaluable bars, i.e. the expected accuracy of signals at random
+times, together with the base momentum share.
+
+**I31 — Health checks.** Output rate outside [0.1 %, 50 %] of bars; a hidden pool is *silent*
+if it does not spike all day, *saturated* if its mean rate is ≥ 90 % of the maximum
+`T / (t_ref + 1)` spikes per neuron per bar.
+
+**I32 — One LIF parameter set for all layers.** Plan §6.1/§12 give one set of LIF constants.
+The output neuron sums 128 hidden neurons while each hidden neuron has a single input, so the
+threshold that keeps the output in the health band (≈ 8–32 on validation days) also makes the
+hidden neurons integrate over ~10 bars. This follows the spec; per-layer constants would be a
+change to discuss, not an interpretation.
+
+M4 check (15 validation folds × 3 seeds, provisional threshold 16):
+[docs/reports/m4_spike_check.md](reports/m4_spike_check.md). Test spike accuracy 53.8 % vs a
+chance level of 53.5 %; momentum share 80.3 % vs 80.6 % for random timing; no health warnings.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie
   outside the training days passed to `fit()`. It receives a history source that can only
   return days strictly before the day being transformed; the causality harness covers it.
-- M4: health checks for silent or saturated pools; the paper's topology drives each
-  64-neuron pool from a single input spike train, so redundant neurons and weights drifting
-  to their bounds are expected and not "fixed".
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,
   matching the reward timing.
 
