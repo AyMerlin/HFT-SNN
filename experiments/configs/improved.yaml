@@ -1,0 +1,13 @@
+# E2: improved model, paper-analogous windows — Hawkes input + R-STDP pools, W_snn = 1, W_h = 1.
+inherits: base.yaml
+name: e2_improved
+description: Bivariate marked Hawkes intensity input with reward-modulated STDP pools H_mom / H_rev.
+
+models:
+  - model: hawkes_rstdp
+    name: improved
+
+backtest:
+  split: test
+  w_snn: [1]
+  w_h: [1]

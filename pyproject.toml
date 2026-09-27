@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snn-hft"
+version = "0.1.0"
+description = "SNN high-frequency trading: paper baseline (Gao, Luk, Weston 2021) vs Hawkes + R-STDP model on Binance BTCUSDT"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "numba>=0.60",
+    "scipy>=1.13",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+    "matplotlib>=3.8",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["snn_hft*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

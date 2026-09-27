@@ -1,0 +1,26 @@
+# Shared study settings. Experiment files inherit from this one.
+# Every other default lives in snn_hft/config/schema.py (§11, §12 of the plan).
+
+data:
+  source: binance
+  venue: binance_um
+  symbol: BTCUSDT
+  dataset: aggTrades          # decision U1
+
+periods:                      # decision U4
+  data:       {start: 2025-09-27, end: 2026-09-26}
+  history_days: 20            # max(W_snn) + max(W_h) = 10 + 10
+  validation: {start: 2025-10-17, end: 2025-11-30}
+  test:       {start: 2025-12-01, end: 2026-09-26}
+
+backtest:
+  split: validation           # experiments on the test period must say so explicitly
+  seeds: [0, 1, 2, 3, 4]
+  latencies_ms: [0]           # decision U2: 0 = paper's entry rule
+
+benchmarks:
+  naive_reps: 100
+  big_move: true              # decision U5
+
+execution:
+  fee_rate: 0.0               # decision U3
