@@ -31,7 +31,7 @@ thesis author · [I] implementation decisions, added per milestone · [O] open q
 | P14 | Annualisation | √365, since crypto trades every day (futures convention would be √252) | `evaluation.annualization_days` |
 | P15 | Trading day for a 24/7 market | UTC calendar day; positions close at the day's last bar | fixed in code, see note |
 | P16 | Stochastic oscillator window | includes the current bar `t`; `H_n = L_n` → no trade | `strategy.stoch_n` |
-| P17 | Synaptic delay not given | 1 tick | `models.*.core.synapse.delay_ticks` |
+| P17 | Synaptic delay not given | 1 tick (at least 1, see I20) | `models.*.core.synapse.delay_ticks` |
 
 **Note on items fixed in code.** The plan says every §11 item is configurable. P2 and P3
 are typesetting errors whose literal reading is not a usable formula (P2 would average
@@ -211,6 +211,49 @@ Real-data check (fit 2025-10-17, transform 2025-10-18): realised mean input prob
 (X1) and 0.200 (X2) for `new_mean = 0.2`; 0.2 % of bars clipped at 0, 0.02 % at 1; 35 % of bars
 lie within ±0.02 of `new_mean`, i.e. most bars produce nearly the same input on both channels.
 
+### M3 — SNN engine
+
+**I19 — Learning rules are declarative; one numba kernel executes them.** Spec §2.4 sketches
+`LearningRule.on_tick` / `on_reward` Python callbacks. A Python call per tick would cost
+seconds per million ticks, so rules carry parameters and a rule code, and
+`snn/simulator.py` executes them. The Hebbian term is computed by the single function
+`stdp_xi`, and the per-tick plasticity by `learning_tick`, which both `simulate_day` and the
+test driver `replay_learning` call. R-STDP therefore uses exactly the STDP code path inside
+its eligibility trace, and the §6.5 reduction test passes bit-identically.
+
+**I20 — Synaptic delay ≥ 1 tick** (`core.synapse.delay_ticks`, default 1). With at least one
+tick of delay the order in which layers are updated within a tick cannot matter.
+
+**I21 — STDP uses emission times.** `ξ` uses `s_i[τ]` of the pre neuron's emission, not its
+arrival. With the default 1-tick delay, an input spike that makes a hidden neuron fire one
+tick later is a pair with `t_pre − t_post = −1`, potentiated by `A·e^{−1/τ}`.
+
+**I22 — Spike traces are per neuron.** `x_i` and `y_j` depend only on one neuron's spikes, so
+they are stored per neuron rather than per synapse. This requires all learning groups of a
+network to share `τ+`, `τ−` and the pairing scheme (and all R-STDP groups `γ`, `τ_z`, delivery),
+which both models do; the network refuses mixed constants.
+
+**I23 — One neuron per input population** (the paper's X1 and X2).
+
+**I24 — Encoder randomness is prefix-stable.** Uniforms are drawn row by row (tick, channel)
+in chunks, so the spikes of the first k bars depend only on the seed and those k bars, not on
+the day's length. A test checks this and the chunk-size invariance.
+
+**I25 — Recorded output.** Every simulation returns spike counts per bar and population,
+including the input populations (the realised input rate for `input_stats.csv`) and every
+hidden pool (diagnostics and health checks).
+
+**I26 — Rewards.** Each R-STDP group reads a named reward stream (`mom`, `rev`); learning
+without the needed rewards is an error; test days (`learn = False`) ignore rewards.
+
+Profiling (M3, validation days, default hyperparameters, Apple M2, one core):
+paper network 1.2M ticks/s training, 2.4M ticks/s test; improved topology 0.6M / 1.2M
+ticks/s. The busiest day of the study (9.5M ticks) therefore takes about 8 s + 4 s (paper) or
+16 s + 8 s (improved) for training plus test; a typical day (1.5M ticks) about 2 s / 4 s.
+With the untuned §12 defaults the output neuron fires in 91–96 % of bars (outside the
+health-check band), which tuning addresses in M5; with random rewards and `γ = 1` the R-STDP
+pools went silent within one day, which is examined with the real rewards in M8.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie
@@ -219,8 +262,6 @@ lie within ±0.02 of `new_mean`, i.e. most bars produce nearly the same input on
 - M4: health checks for silent or saturated pools; the paper's topology drives each
   64-neuron pool from a single input spike train, so redundant neurons and weights drifting
   to their bounds are expected and not "fixed".
-- M8: reward delivery schedule is configurable (`rstdp.delivery`), so the mandatory
-  reduction test can deliver a reward every tick.
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,
   matching the reward timing.
 

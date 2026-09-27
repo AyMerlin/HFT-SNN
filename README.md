@@ -71,7 +71,7 @@ Run the tests:
 | M0 | skeleton, config system, CLI, design-decisions log | done |
 | M1 | data loading and parquet store | done — [coverage](docs/reports/m1_data_coverage.md) |
 | M2 | baseline preprocessing, causality harness | done |
-| M3 | SNN engine and profiling | |
+| M3 | SNN engine and profiling | done |
 | M4 | paper SNN signal model, spike evaluator | |
 | M5 | strategies, backtester, E1 | |
 | M6 | Hawkes module | |

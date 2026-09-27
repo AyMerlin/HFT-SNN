@@ -111,7 +111,7 @@ class LIFConfig(_Strict):
 
 
 class SynapseConfig(_Strict):
-    delay_ticks: int = Field(1, ge=0)  # §11 #17
+    delay_ticks: int = Field(1, ge=1)  # §11 #17; ≥ 1 so layer update order never matters
     w_init_low: float = Field(0.2, ge=0)
     w_init_high: float = 0.6
     w_max: float = Field(1.0, gt=0)
