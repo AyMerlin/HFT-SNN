@@ -169,6 +169,16 @@ Constraints: E1, E2, the baseline and the improved model stay unchanged (same mo
 results valid); the paper strategies stay unchanged; tuning on validation only, same 80-trial
 budget and shared grid; M9 sweeps stay pending until after E6.
 
+
+**U11 — Typed line stopped after Phase A; M9 and M10 next (2026-09-28).**
+The Phase A gate failed (best Hawkes feature AUC 0.504 vs 0.53) and the trade label is not
+predictable from the price-derived inputs (held-out AUC 0.512; typing would add ≈ +0.01 bp per trade
+against +2.4 bp for a perfect type). Decision: Phase B is not built; Phase A is reported as a negative
+premise result. A short order-flow check (validation only) is added as an appendix item: does
+order-flow information make the trade outcome predictable at all? The tuning grid is not widened
+(the E2 conclusions are unlikely to change and the sweeps keep the tuned settings for
+comparability). M9 runs E3, E4, A2 and A3; the optional E5 grid is skipped. Then M10.
+
 ---
 
 ## [I] Implementation decisions
@@ -519,6 +529,14 @@ trade-count bars (per-bar |d| varies ≈ 1.2× across hours while bar counts var
 differencing. d_t stays in USD as in the paper; for multi-day training windows (E4) price-level
 changes between days rescale it relative to the z-score statistics. No code change.
 [docs/reports/differencing_check.md](reports/differencing_check.md).
+
+**I57 — Order-flow appendix check (U11).** Order-flow imbalance per bar = (taker-buy − taker-sell
+volume) / bar volume from the aggTrades side flag, oriented by the trade direction. On held-out
+validation days it predicts the trade outcome with AUC 0.538 (price features: 0.512; current bar's
+imbalance alone: 0.541), and typing with it earns +0.203 bp per trade vs +0.087 bp for always
+following (oracle +2.524 bp). This passes the 0.53 premise threshold that price features failed;
+it is reported as an appendix and future work, not built into a model (scope decision U11).
+[docs/reports/orderflow_check.md](reports/orderflow_check.md).
 
 ### Planned (to be recorded in detail when implemented)
 
