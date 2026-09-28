@@ -1,9 +1,10 @@
 """Big-move benchmark (decision U5): a signal whenever the current price change is large.
 
 The threshold is the (1 − target_rate) quantile of |d_t| on the training days, where the
-target rate is the SNN's signal rate on those training days. The benchmark is therefore
-causal (training data plus the current bar) and fires about as often as the SNN. It shows
-how much spike accuracy follows from volatility persistence alone.
+target rate is the model's signal rate on the test day (the same count matching as the
+naive benchmark). Signals use only the training-day threshold and the current bar, so they
+are causal, and the benchmark fires about as often as the model. It shows how much spike
+accuracy follows from volatility persistence alone.
 """
 
 from __future__ import annotations

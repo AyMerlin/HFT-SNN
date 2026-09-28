@@ -222,7 +222,9 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
                                    **{k: m[k] for k in SPIKE_FIELDS}})
 
             fold_spec = splitter.folds([day])[0]
-            big = BigMoveSignalModel(run0.bars.vwap_num, target_rate=fold.train_signal_rate)
+            # Fires about as often as the model on this test day (like the naive benchmark); the
+            # threshold itself comes from the training days, so the signals stay causal.
+            big = BigMoveSignalModel(run0.bars.vwap_num, target_rate=sig.rate)
             big.fit([DayData(day=d, bars=bar_cache.get(d)) for d in fold_spec.train_days])
             big_sig = big.generate(DayData(day=day, bars=bars))
             if run0.benchmarks.big_move:

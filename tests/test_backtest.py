@@ -117,6 +117,10 @@ def test_end_to_end_smoke(tmp_path):
         assert perf["latencies"]["0.0"]["model"]["n_days"] == 3
     # Tables: 3 test days × (model, naive, big_move) sources, both splits for the model.
     assert len(result.table4_rows) == 2 * 3 * 2 * 3  # seeds × rules × latencies × sources
+    test_rows = {(r["seed"], r["source"]): r for r in result.table3_rows if r["split"] == "test"}
+    for seed in (0, 1):  # the big-move benchmark fires about as often as the model on test days
+        ratio = test_rows[seed, "big_move"]["signal_rate"] / test_rows[seed, "model"]["signal_rate"]
+        assert 0.5 < ratio < 2.0
     sources = {(r["split"], r["source"]) for r in result.table3_rows}
     assert sources == {("train", "model"), ("test", "model"), ("test", "naive"), ("test", "big_move")}
     # Signals are shared: one parquet hard-linked into every rule's directory.

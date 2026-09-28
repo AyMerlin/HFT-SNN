@@ -332,10 +332,13 @@ repetition and then averaged (mean ± std over repetitions); averaging the daily
 understate the volatility of a single naive backtest. The naive spike accuracy is the empirical
 chance level; the exact expected chance level (`base_accuracy`) is reported alongside.
 
-**I36 — Big-move benchmark (U5) details.** Target rate = the model's mean signal rate on the
-fold's training days; the threshold is the matching quantile of `|d_t|` on those days; a signal
-fires when `|d_t|` is strictly above it. It is evaluated exactly like the model (spikes and all
-strategies).
+**I36 — Big-move benchmark (U5) details.** Target rate = the model's signal rate on the test day
+(the same count matching the naive benchmark uses); the threshold is the matching quantile of
+`|d_t|` on the fold's training days; a signal fires when `|d_t|` is strictly above it. It is
+evaluated exactly like the model (spikes and all strategies). *Revised 2026-09-28:* the first
+version matched the model's training-day rate, but the trained model fires about twice as often
+on test days (8.2 % vs 4.4 % of bars at 100 trades per bar), so the benchmark fired half as often
+as the model, which favoured its accuracy.
 
 **I37 — Performance details.** Daily P&L includes every test day (0 on days without trades);
 standard deviations use ddof = 1; win rate and profit/loss ratio pool all trades of the test
@@ -377,6 +380,37 @@ num = 100). The improved model has not been tuned yet, so both models get the sa
 model id; it is bumped whenever preprocessing, encoding, the SNN kernels or the Hawkes model
 change, so cached signals from older code are never reused.
 
+### M6 — Hawkes module
+
+**I42 — Module layout.** `models/hawkes/` holds, as in the spec, `kernels.py`, `marks.py`,
+`params.py` and `process.py`, plus two additions: `events.py` (events and event times from bar
+price differences, wrapped by the M7 `EventExtractor` step) and `provider.py`
+(`HawkesParamProvider`, which enforces the freezing rule). `HawkesParamCache` lives in
+`backtest/cache.py` as specified.
+
+**I43 — Likelihood and fitting.** The log-likelihood and its analytic gradient use the O(N)
+recursion of §5.3 plus a companion recursion for ∂S/∂β (checked against finite differences and
+against the brute-force O(N²) sum). L-BFGS-B works on log-parameters with bounds
+μ, α ∈ [1e-8, 1e3] and β ∈ [1e-4, 1e3]; the objective is −ℓ / n_events. Stationarity: a penalty
+100·(ρ − 0.99)² with its closed-form gradient when ρ(A) > 0.99, and every restart with ρ(A) ≥ 1 is
+rejected. If all restarts are rejected, the provider retries once with 4× the restarts and a
+penalty of 1e4, then fails loudly. Restart initialisation: β drawn from `beta_init_grid`,
+α = 0.2·β·U(0.8, 1.2), μ = 0.5·(event rate of the type)·U(0.8, 1.2).
+
+**I44 — Freezing and caching.** `θ_d` is fitted on exactly the `W_h` calendar days before `d`
+(tests check that day `d` is never requested and that changing day `d` leaves `θ_d` unchanged).
+Fits use their own random stream, independent of the SNN seed, so every fold, seed and strategy
+shares one `θ_d`. Cache key: data identity, bar size, `SIGNAL_CODE_VERSION`, mark function, time
+axis, `W_h`, a hash of the fit settings (restarts, β grid, max_iter), and the day.
+
+**I45 — Bars and limits.** On the bar clock the event window of a day is [0, N_bars] and bar b is
+at time b; on the wall clock, at the bar's last trade in seconds since the UTC day start
+([0, 86 400]). `λ(b⁻)` excludes and `λ(b⁺)` includes the event of bar b. Events with equal times
+are strictly ordered; the branching split of an event uses the history before it, including
+earlier events at the same time.
+
+M6 review on real validation days (U6): [docs/reports/m6_hawkes_review.md](reports/m6_hawkes_review.md).
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie
@@ -389,6 +423,14 @@ change, so cached signals from older code are never reused.
 
 ## [O] Open questions
 
-None at the moment. Resolved questions move to [U].
+**O2 — Event definition for the Hawkes model (U6 review, 2026-09-28).** On the bar clock every
+bar carries an event (99.99 % at 100 trades per bar), so the fitted process attributes 95–97 % of
+events to the background: the momentum score M is 0.035–0.05 on average and never negative, i.e.
+the R-STDP rewards (Problem 2) are nearly flat. The intensity nevertheless predicts the next
+moves beyond |d_t| (partial Spearman 0.15–0.17), so Problem 1's memory is present. Options:
+keep the spec; use the `wallclock` axis (spec option: rewards work, memory advantage drops to
+0.06); or add a causal event threshold (events only when |d_t| exceeds a fit-window quantile,
+e.g. 0.8 or 0.9, frozen with θ_d: rewards work and the memory advantage is largest, 0.23–0.24).
+The threshold contradicts the spec's "no threshold" and needs the author's decision before M7.
 
 **O1 → resolved as U7 (2026-09-28).**
