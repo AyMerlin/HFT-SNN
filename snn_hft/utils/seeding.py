@@ -6,7 +6,7 @@ from datetime import date
 
 import numpy as np
 
-PURPOSE = {"init": 1, "train": 2, "test": 3, "naive": 4}
+PURPOSE = {"init": 1, "train": 2, "test": 3, "naive": 4, "hawkes": 5}
 
 
 def rng_for(seed: int, purpose: str, *keys: int | date) -> np.random.Generator:

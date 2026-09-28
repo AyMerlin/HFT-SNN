@@ -60,6 +60,31 @@ class FoldResult:
     extra: dict = field(default_factory=dict)  # model-specific metadata (e.g. Hawkes fits)
 
 
+class HawkesParamCache:
+    """θ_d as JSON per (data, bar size, code version, mark function, time axis, W_h, fit settings, day).
+
+    Reused across folds, seeds, strategies and experiments (§5.5)."""
+
+    def __init__(self, cache_dir: str | Path, venue: str, symbol: str, dataset: str, vwap_num: int):
+        from snn_hft.config.schema import SIGNAL_CODE_VERSION
+
+        self.root = Path(cache_dir) / "hawkes" / venue / symbol / dataset / f"num{vwap_num}" / f"code{SIGNAL_CODE_VERSION}"
+
+    def path(self, key: str) -> Path:
+        return self.root / f"{key}.json"
+
+    def has(self, key: str) -> bool:
+        return self.path(key).is_file()
+
+    def load(self, key: str):
+        from snn_hft.models.hawkes.params import HawkesParameters
+
+        return HawkesParameters.from_json(self.path(key).read_text())
+
+    def save(self, key: str, params) -> None:
+        _atomic_write(self.path(key), lambda p: p.write_text(params.to_json()))
+
+
 class SignalCache:
     """``{cache_dir}/signals/{model_id}/Wsnn{w}_Wh{h}/seed{s}/{test_day}.npz``."""
 
