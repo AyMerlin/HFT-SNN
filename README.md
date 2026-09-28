@@ -80,20 +80,16 @@ Run the tests:
 | M9 | window experiments | |
 | M10 | analysis and comparison report | |
 
-## LOB project (branch `feature/lob-snn-benchmark` only)
+## FI-2010 project (branch `feature/lob-snn-benchmark` only)
 
-Price-trend prediction from limit-order-book data: DeepLOB replication on FI-2010, then
-DeepLOB as the baseline on Bybit BTCUSDT against LIF and BRF spiking recurrent networks.
-Decisions: [docs/DESIGN_DECISIONS_LOB.md](docs/DESIGN_DECISIONS_LOB.md); data retrieval:
-[docs/DATA_RETRIEVAL.md](docs/DATA_RETRIEVAL.md).
+Price-trend prediction from limit-order-book data on FI-2010: replicate DeepLOB, then use it
+as the baseline for recurrent spiking networks with LIF and BRF neurons on the same data.
+Scope, milestones and decisions: [docs/DESIGN_DECISIONS_LOB.md](docs/DESIGN_DECISIONS_LOB.md).
 
 | Milestone | Content | State |
 |---|---|---|
-| L0 | retrieval layer, 90 standardized Bybit days, quality report | in progress |
-| L1 | FI-2010 data, metrics, trainer | |
-| L2 | DeepLOB replication on FI-2010 (gate to Phase B) | |
-| L3 | LOB preprocessing | |
-| L4 | BTC baselines (gate to Phase C) | |
-| L5 | LIF and BRF cells, BRF validation | |
-| L6 | spiking models and twin on BTC and FI-2010 | |
-| L7 | cross-venue test, efficiency, ablations, report | |
+| F1 | FI-2010 data, window dataset, metrics, trainer | |
+| F2 | DeepLOB replication on FI-2010 (gate) | |
+| F3 | LIF and BRF cells, BRF validation | |
+| F4 | spiking networks (LIF, BRF) and non-spiking twin on FI-2010 | |
+| F5 | efficiency analysis, ablations, report | |

@@ -6,7 +6,9 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA = "snn_hft.data.lob.schema"
+# Framework modules the retrieval layer may import (the shared definition of the data format).
+# Empty until the FI-2010 format module exists.
+ALLOWED_FROM_RETRIEVAL: set[str] = set()
 
 
 def imported_modules(path: Path, source: str | None = None) -> set[str]:
@@ -40,20 +42,21 @@ def test_framework_never_imports_retrieval_or_scripts():
         assert not bad, f"{f.relative_to(ROOT)} imports {bad}"
 
 
-def test_retrieval_imports_only_the_schema_from_the_framework():
+def test_retrieval_imports_only_allowed_framework_modules():
     for f in py_files("retrieval"):
         framework = {m for m in imported_modules(f) if m.split(".")[0] == "snn_hft"}
-        bad = {m for m in framework if m != SCHEMA and not m.startswith(SCHEMA + ".")}
+        bad = {m for m in framework if not any(m == a or m.startswith(a + ".") for a in ALLOWED_FROM_RETRIEVAL)}
         assert not bad, f"{f.relative_to(ROOT)} imports {bad}"
 
 
-def test_schema_depends_on_no_other_framework_module():
-    for f in [ROOT / "snn_hft/data/lob/schema.py", ROOT / "snn_hft/data/lob/__init__.py"]:
+def test_allowed_modules_depend_on_no_other_framework_module():
+    for mod in ALLOWED_FROM_RETRIEVAL:
+        f = ROOT / (mod.replace(".", "/") + ".py")
         framework = {m for m in imported_modules(f) if m.split(".")[0] == "snn_hft"}
         assert not framework, f"{f.relative_to(ROOT)} imports {framework}"
 
 
 def test_import_scanner_sees_both_import_forms():
     fake = ROOT / "snn_hft" / "signals" / "lob" / "probe.py"
-    mods = imported_modules(fake, "import retrieval.book\nfrom ...data.lob import schema\n")
-    assert "retrieval.book" in mods and SCHEMA in mods
+    mods = imported_modules(fake, "import retrieval.http\nfrom ...data import fi2010\n")
+    assert "retrieval.http" in mods and "snn_hft.data.fi2010" in mods

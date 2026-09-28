@@ -1,6 +1,6 @@
-"""Retrieval layer (plan §3.1, §4): download, order-book reconstruction, quality control and
-writing of standardized LOB files.
+"""Retrieval layer: downloads and converts datasets into the files the framework reads.
 
-Not part of the framework. The only framework module imported here is
-`snn_hft.data.lob.schema` (enforced by tests/lob/test_architecture.py).
+Not part of the framework. `snn_hft` never imports it and performs no network access
+itself; the retrieval layer imports from `snn_hft` only the modules that define the shared
+data format (enforced by tests/lob/test_architecture.py).
 """
