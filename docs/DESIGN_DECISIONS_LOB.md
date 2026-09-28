@@ -183,9 +183,8 @@ retries and a sha256 sidecar; generic, reused for FI-2010), the dependency-direc
 until the FI-2010 format module exists), the `scripts/data/` package, and the `.gitignore`
 fix.
 
-**F0-2 — Environment.** Python 3.11 virtual environment; PyTorch 2.14.0 CPU build (no GPU
-in this container). Measured DeepLOB training cost on the 4 CPUs: ~1.8 ms per sample at
-batch 32, i.e. ~6 min per epoch on FI-2010's ~204k training windows.
+**F0-2 — Environment.** Python 3.11 virtual environment; PyTorch 2.14.0 CPU build and
+scikit-learn 1.9 (extra `lob` in `pyproject.toml`); no GPU in this container (cost: F1-8).
 
 ---
 
@@ -254,15 +253,41 @@ Setup 2 class counts (up / stationary / down):
 | 20 | 52,535 / 99,044 / 52,221 | 12,074 / 26,818 / 12,058 | 27,470 / 86,618 / 25,499 |
 | 50 | 71,482 / 61,827 / 70,491 | 16,123 / 18,847 / 15,980 | 38,467 / 66,007 / 35,113 |
 
+**F1-5 — Input windows** (`snn_hft/training/dataset.py`). Sample i is the 100 rows ending at
+a labelled row; every row from the 100th on is a sample, and windows may span a stock or
+day change, exactly as in the authors' code (Setup 2 training: 203,701 windows, of which
+~1.6 % span a change). An option restricts windows to one (stock, day) segment; it is not
+used for the replication. Windows are gathered per batch, not stored.
+
+**F1-6 — Training loop** (`snn_hft/training/trainer.py`, `optim.py`).
+- Keras-form Adam (P2), cross-entropy on logits (Keras applies it to softmax outputs
+  clipped at 1e-7; numerically the same away from saturation).
+- Samples reshuffled every epoch from a seeded generator; the last batch may be smaller.
+- Early stopping as Keras `EarlyStopping`: an epoch improves only if validation accuracy is
+  strictly higher than the best; stop after 20 epochs without improvement; best and last
+  weights kept.
+- The complete state is checkpointed after every epoch and `fit` resumes from it; a test
+  shows that an interrupted and resumed run is identical to an uninterrupted one.
+
+**F1-7 — Metrics** (`snn_hft/evaluation/classification.py`): accuracy, weighted and macro
+precision/recall/F1, Matthews' correlation and the confusion matrix, checked against
+scikit-learn; Setup 1 averages each metric over the 9 folds without weights.
+
+**F1-8 — Measured cost of the paper-sized DeepLOB on this container** (4 CPUs, no GPU,
+PyTorch 2.14 CPU): 24.8 ms per training step of 32 with 4 threads, i.e. 2.6 min per Setup 2
+epoch plus ~0.6 min validation. Four single-thread runs in parallel reach ~23 % more total
+throughput (~81 ms per step each). With ~120 epochs per run (the paper's ~100 plus the
+patience of 20), one Setup 2 run is ~4 machine-hours; Setup 2 (3 horizons × 5 seeds) is
+~3 days; Setup 1 (9 folds × 3 horizons, smaller training sets) is ~4 days per seed.
+
 ---
 
 ## [O] Open questions
 
-1. **Compute** (plan: stop if insufficient). No GPU here; one DeepLOB run with early
-   stopping is a few CPU hours, so the replication (3 horizons × 5 seeds) is tens of CPU
-   hours. The spiking models (BPTT over 100 steps) and tuning add more.
+1. **Compute** (plan: stop if insufficient). See F1-8: the full grid (Setup 2 × 5 seeds,
+   Setup 1 × 5 seeds) is ~3 weeks of this container's CPU, and the container is reclaimed
+   after inactivity (checkpoints live on its disk).
 2. **F2 acceptance metric:** compare like with like — support-weighted P/R/F1 (see P8)
    against the paper, macro-F1 against LOBCAST.
 3. **Tuning budget** for LIF, BRF and the twin: once per model family on one reference
    horizon, or per horizon.
-4. **Setup 1 cost.** 9 folds × 3 horizons per seed; see F1 for the measured cost per epoch.

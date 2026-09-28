@@ -86,9 +86,14 @@ Price-trend prediction from limit-order-book data on FI-2010: replicate DeepLOB,
 as the baseline for recurrent spiking networks with LIF and BRF neurons on the same data.
 Scope, milestones and decisions: [docs/DESIGN_DECISIONS_LOB.md](docs/DESIGN_DECISIONS_LOB.md).
 
+```bash
+.venv/bin/pip install -e ".[dev,lob]"      # CPU-only: install torch from https://download.pytorch.org/whl/cpu first
+.venv/bin/python -m scripts.data.fi2010_prepare   # download (1.86 GB), verify and convert FI-2010
+```
+
 | Milestone | Content | State |
 |---|---|---|
-| F1 | FI-2010 data, window dataset, metrics, trainer | |
+| F1 | FI-2010 data, window dataset, metrics, trainer | done |
 | F2 | DeepLOB replication on FI-2010 (gate) | |
 | F3 | LIF and BRF cells, BRF validation | |
 | F4 | spiking networks (LIF, BRF) and non-spiking twin on FI-2010 | |
