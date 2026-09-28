@@ -153,6 +153,22 @@ about the next moves beyond |d_t| rises from 0.19 to 0.23–0.24 (partial Spearm
 `wallclock` axis also made the rewards informative but reduced that information to 0.06.
 Evidence: [docs/reports/m6_hawkes_review.md](reports/m6_hawkes_review.md).
 
+
+**U10 — Third model "hawkes_typed" with a momentum/reversion strategy (2026-09-28).**
+Scope change requested by the author after M8. E2 showed that the improved model's R-STDP pools do
+not specialise (AUC 0.501) and that, by design, their information cannot reach the strategies (one
+output neuron; direction from price only). A further suspected cause: with excitatory weights only,
+a pool responds monotonically to (λ_u, λ_d) and cannot fire for "one intensity high, the other low"
+(momentum) without also firing for "both high" (reversion).
+Decision: (A) premise checks first (`experiments/typed_premise_checks.py`, validation data for
+every design-relevant check; test-period analyses only as critique, never for design); gate:
+check in with the author, who chooses the teacher and the tuning objective. (B) Only then a third
+model `hawkes_typed` with two typed outputs (momentum, reversion) and a new "typed" strategy that
+follows momentum signals and fades reversion signals; ablations T1–T3; experiment E6.
+Constraints: E1, E2, the baseline and the improved model stay unchanged (same model ids, cached
+results valid); the paper strategies stay unchanged; tuning on validation only, same 80-trial
+budget and shared grid; M9 sweeps stay pending until after E6.
+
 ---
 
 ## [I] Implementation decisions
@@ -473,6 +489,19 @@ E2, A1 and input-rate controls on the test period: [m8_e2_results.md](reports/m8
 **I53 — Model structure.** `HawkesRSTDPSignalModel` subclasses the shared `SNNSignalModel` and only
 supplies the Hawkes pipeline, the extended topology and the reward streams (`mom`, `rev`). It keeps
 one parameter provider for its lifetime, so θ_d is reused across folds.
+
+### U10 Phase A — premise checks for the typed model
+
+**I54 — Definitions and additions.** Trade label at bar t: dir_t = MomentumRule(3) direction,
+follow_ret_t = dir_t · (vwap[t+4] / vwap[t+1] − 1); momentum = following wins (> 0), reversion =
+fading wins (< 0); bars with dir_t = 0, no exit bar inside the day or a zero return are excluded.
+The gate compares each Hawkes feature in its expected orientation (p_cross is expected to be
+higher for reversion, so 1 − AUC counts). Added beyond the work package: A1b, a held-out logistic
+regression of the trade label on causal features the network could see (signed moves and sizes at
+t, t−1, t−2, the intensity asymmetry at t, t−1, t−2, the log total intensity), because a teacher can
+only train what the inputs make predictable. Pool maps use quantile bins of the encoded input
+probabilities (50/75/90/97 %). A4 uses seed-0 test signals and is reported for the critique only.
+Report: [docs/reports/typed_premise_checks.md](reports/typed_premise_checks.md).
 
 ### Planned (to be recorded in detail when implemented)
 
