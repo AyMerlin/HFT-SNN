@@ -133,7 +133,7 @@ def test_tuning_grid_and_trials():
     from experiments.tune import SHARED_GRID, apply_trial, grid_for, sample_trials
 
     assert set(grid_for("paper_snn")) == set(SHARED_GRID) | {"zscore.new_std"}
-    assert set(grid_for("hawkes_rstdp")) == set(SHARED_GRID) | {"rstdp.gamma", "rstdp.tau_z_bars"}
+    assert set(grid_for("hawkes_rstdp")) == set(SHARED_GRID) | {"rstdp.gamma", "rstdp.tau_z_bars", "hawkes.event_quantile"}
     assert all(grid_for(m)[k] == v for m in ("paper_snn", "hawkes_rstdp") for k, v in SHARED_GRID.items())
     trials = sample_trials(SHARED_GRID, 10, seed=0)
     assert len({tuple(t.values()) for t in trials}) == 10

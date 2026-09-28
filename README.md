@@ -75,7 +75,7 @@ Run the tests:
 | M4 | paper SNN signal model, spike evaluator | done — [spike check](docs/reports/m4_spike_check.md) |
 | M5 | strategies, backtester, E1 | done — [E1 report](docs/reports/m5_e1_baseline.md) |
 | M6 | Hawkes module | done — [real-data review](docs/reports/m6_hawkes_review.md) |
-| M7 | improved preprocessing | |
+| M7 | improved preprocessing | done — [check](docs/reports/m7_improved_preprocessing.md) |
 | M8 | R-STDP, improved model, E2, A1 | |
 | M9 | window experiments | |
 | M10 | analysis and comparison report | |

@@ -71,3 +71,40 @@ class ShiftedZScoreNormalizer(PreprocessingStep):
             f"ShiftedZScoreNormalizer(new_mean={self.new_mean}, new_std={self.new_std}, "
             f"stats_source={self.stats_source!r})"
         )
+
+
+class IntensityRateScaler(PreprocessingStep):
+    """Improved-model encoding (§4.2, §6.4): channel_prob[:, c] = clip(λ_c(t) · new_mean / mean_train(λ_c), 0, 1).
+
+    Channel 0 = λ_u (X1), channel 1 = λ_d (X2). `mean_train` is the mean intensity over all bars
+    of the training days, so the mean input probability on those days equals `new_mean` up to
+    clipping. Intensities are non-negative, so no max(·, 0) is needed.
+    """
+
+    def __init__(self, new_mean: float = 0.2):
+        self.new_mean = new_mean
+        self.mean_: np.ndarray | None = None
+
+    @staticmethod
+    def _lambda(day: DayData) -> np.ndarray:
+        if day.lambda_u is None or day.lambda_d is None:
+            raise ValueError(f"{day.day}: IntensityRateScaler needs lambda_u / lambda_d")
+        return np.column_stack([day.lambda_u, day.lambda_d])
+
+    def fit(self, train_days: Sequence[DayData]) -> IntensityRateScaler:
+        if not train_days:
+            raise ValueError("IntensityRateScaler needs at least one training day")
+        lam = np.concatenate([self._lambda(d) for d in train_days])
+        self.mean_ = lam.mean(axis=0)
+        if not (self.mean_ > 0).all():
+            raise ValueError("training intensities must be positive")
+        return self
+
+    def transform(self, day: DayData) -> DayData:
+        if self.mean_ is None:
+            raise NotFittedError("IntensityRateScaler.transform called before fit")
+        prob = np.clip(self._lambda(day) * (self.new_mean / self.mean_), 0.0, 1.0)
+        return day.with_fields(channel_prob=prob)
+
+    def __repr__(self) -> str:
+        return f"IntensityRateScaler(new_mean={self.new_mean})"

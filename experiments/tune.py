@@ -44,6 +44,7 @@ PAPER_GRID: dict[str, list[Any]] = {
 IMPROVED_GRID: dict[str, list[Any]] = {
     "rstdp.gamma": [0.1, 0.3, 1.0],
     "rstdp.tau_z_bars": [1.0, 3.0, 10.0],
+    "hawkes.event_quantile": [0.8, 0.9, 0.95],  # decision U9
 }
 
 

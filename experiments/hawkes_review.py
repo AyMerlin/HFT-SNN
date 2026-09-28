@@ -154,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
 
     raw = load_raw(args.config)
     periods = PeriodsConfig.model_validate(raw.get("periods", {}))
-    hawkes = HawkesConfig().model_dump(mode="json")
+    hawkes = HawkesConfig(event_quantile=None).model_dump(mode="json")  # spec setting: every move is an event
     days = periods.validation.days()
     tasks = [(raw, d, w, hawkes, 3) for w in args.windows for d in days]
     t0 = time.time()

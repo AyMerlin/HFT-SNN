@@ -29,9 +29,12 @@ class HawkesParameters:
     marks: dict[str, Any]  # fitted mark function (name and normalisation constants)
     time_axis: str = "bar_index"
     fit: dict[str, Any] = field(default_factory=dict)  # provenance: days, log-likelihood, convergence, …
+    event_threshold: float | None = None  # |d| above which a bar is an event (U9); None = every move
 
     @classmethod
-    def from_arrays(cls, mu, alpha, beta, mark_fn: MarkFunction, time_axis="bar_index", fit=None) -> HawkesParameters:
+    def from_arrays(
+        cls, mu, alpha, beta, mark_fn: MarkFunction, time_axis="bar_index", fit=None, event_threshold=None
+    ) -> HawkesParameters:
         return cls(
             mu=tuple(float(x) for x in np.asarray(mu)),
             alpha=tuple(tuple(float(x) for x in row) for row in np.asarray(alpha)),
@@ -39,6 +42,7 @@ class HawkesParameters:
             marks=mark_fn.to_dict(),
             time_axis=time_axis,
             fit=fit or {},
+            event_threshold=None if event_threshold is None else float(event_threshold),
         )
 
     @property

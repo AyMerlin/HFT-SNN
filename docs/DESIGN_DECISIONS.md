@@ -138,6 +138,21 @@ The paper does not report its bar count; with the tuned signal rate (~16 %), 100
 ~2,900 signals per day, close to the paper's 2,586. Consequences: holding 3 bars ≈ 15 s, next-bar
 entry is achievable within seconds, and latencies up to 1 s are evaluated.
 
+
+**U9 — Hawkes events: causal threshold on the bar clock (2026-09-28).**
+Spec: every bar with `d_t ≠ 0` is an event, no threshold (§4.2); bar clock (§5.1).
+Decision: bar clock, but a bar is an event only if |d_t| exceeds the `q`-quantile of the non-zero
+|d| on the fit window [d − W_h, d − 1]. The threshold is part of θ_d (frozen, cached, never
+computed on day d). `q = hawkes.event_quantile` is tuned on validation in {0.8, 0.9, 0.95} within
+the improved model's trial budget; `null` restores the spec behaviour.
+Why: with every move an event (99.99 % of bars at 100 trades per bar), the fitted process puts
+95–97 % of events into the background, so the momentum score M behind the R-STDP rewards is
+nearly constant and never negative (Problem 2 would get no training signal). With the threshold
+(validation days, W_h = 1): |M| > 0.2 for 78–93 % of events and the intensity's information
+about the next moves beyond |d_t| rises from 0.19 to 0.23–0.24 (partial Spearman). The
+`wallclock` axis also made the rewards informative but reduced that information to 0.06.
+Evidence: [docs/reports/m6_hawkes_review.md](reports/m6_hawkes_review.md).
+
 ---
 
 ## [I] Implementation decisions
@@ -411,11 +426,36 @@ earlier events at the same time.
 
 M6 review on real validation days (U6): [docs/reports/m6_hawkes_review.md](reports/m6_hawkes_review.md).
 
+### M7 — improved preprocessing
+
+**I46 — Where the threshold lives.** `EventExtractor` writes every move to `day.events`; the
+Hawkes step keeps those above θ_d's threshold (U9), because the threshold is part of θ_d. The
+provider learns it from the candidate moves of the fit window.
+
+**I47 — History source.** θ_d needs the bars of days before `d`, which are not among the
+training days `fit()` receives (planned item of M0). The provider gets a history function
+(`candidate_events_source`, built on the shared bar cache) and only ever calls it for the `W_h`
+days before `d`. The causality tests run the full improved pipeline with history drawn from the
+perturbed world, and a provider that fits on day `d` itself is flagged.
+
+**I48 — Encoding details.** `IntensityRateScaler` divides by the mean intensity over all bars of
+all training days, per channel (channel 0 = λ_u → X1, channel 1 = λ_d → X2). Bar 0 gets
+λ = μ. The first events of a day have no history, so their momentum score (and reward) is 0.
+
+**I49 — Branching output.** `day.branching` is a table (bar_idx, p_bg, p_same, p_cross,
+momentum); θ_d is kept in `day.extras["hawkes_params"]` so runs can store it (§8.6 `hawkes/`).
+
+**I50 — Improved tuning grid.** `hawkes.event_quantile` {0.8, 0.9, 0.95} joins `γ` and
+`tau_z_bars` as the improved model's own parameters, within the same 80-trial budget.
+
+M7 check on real validation days: [docs/reports/m7_improved_preprocessing.md](reports/m7_improved_preprocessing.md).
+With equal `new_mean` both encodings give similar realised input rates (0.069 vs 0.071 at
+`new_mean = 0.05`); both exceed the target on test days by 30–40 % because they are scaled with
+training-day statistics. The Hawkes input is about three times as strongly related to the next
+moves as the z-score input (Spearman 0.25 vs 0.07–0.09).
+
 ### Planned (to be recorded in detail when implemented)
 
-- M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie
-  outside the training days passed to `fit()`. It receives a history source that can only
-  return days strictly before the day being transformed; the causality harness covers it.
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,
   matching the reward timing.
 
@@ -423,14 +463,8 @@ M6 review on real validation days (U6): [docs/reports/m6_hawkes_review.md](repor
 
 ## [O] Open questions
 
-**O2 — Event definition for the Hawkes model (U6 review, 2026-09-28).** On the bar clock every
-bar carries an event (99.99 % at 100 trades per bar), so the fitted process attributes 95–97 % of
-events to the background: the momentum score M is 0.035–0.05 on average and never negative, i.e.
-the R-STDP rewards (Problem 2) are nearly flat. The intensity nevertheless predicts the next
-moves beyond |d_t| (partial Spearman 0.15–0.17), so Problem 1's memory is present. Options:
-keep the spec; use the `wallclock` axis (spec option: rewards work, memory advantage drops to
-0.06); or add a causal event threshold (events only when |d_t| exceeds a fit-window quantile,
-e.g. 0.8 or 0.9, frozen with θ_d: rewards work and the memory advantage is largest, 0.23–0.24).
-The threshold contradicts the spec's "no threshold" and needs the author's decision before M7.
+None at the moment.
+
+**O2 → resolved as U9 (2026-09-28).**
 
 **O1 → resolved as U7 (2026-09-28).**

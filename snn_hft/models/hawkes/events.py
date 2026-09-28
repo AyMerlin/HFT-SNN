@@ -37,3 +37,22 @@ def events_from_bars(d: np.ndarray, ts_end_ns: np.ndarray | None, day_start_ns: 
         horizon=horizon,
         bar_idx=bars,
     )
+
+
+def threshold_events(events: DayEvents, threshold: float | None) -> DayEvents:
+    """Keep only events whose mark |d_t| exceeds the threshold (U9); None keeps every event."""
+    if threshold is None:
+        return events
+    keep = events.marks > threshold
+    bar_idx = None if events.bar_idx is None else events.bar_idx[keep]
+    return DayEvents(events.times[keep], events.types[keep], events.marks[keep], events.horizon, bar_idx)
+
+
+def fit_window_threshold(days: list[DayEvents], quantile: float | None) -> float | None:
+    """The `quantile` of the non-zero |d| over the fit window's candidate events (all moves)."""
+    if quantile is None:
+        return None
+    marks = np.concatenate([d.marks for d in days])
+    if len(marks) == 0:
+        raise ValueError("no moves in the fit window")
+    return float(np.quantile(marks, quantile))

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from snn_hft.data.containers import TRADE_COLUMNS, BarSeries, DayData, TradeFrame, day_bounds_ns
+from snn_hft.models.hawkes.process import DayEvents
 from snn_hft.signals.base import SignalSeries
 
 World = dict[date, TradeFrame]
@@ -81,7 +82,8 @@ def assert_prefix_equal(a: Any, b: Any, t: int, path: str = "") -> None:
     """Assert that two outputs agree on everything that belongs to bars 0..t.
 
     Arrays are indexed by bar; DataFrames with a ``bar_idx`` column are filtered by it;
-    a SignalSeries is compared on its signals at bars ≤ t and its per-bar diagnostics;
+    a SignalSeries is compared on its signals at bars ≤ t and its per-bar diagnostics; DayEvents
+    on its events at bars ≤ t (the window length may differ);
     dicts, dataclasses, BarSeries and DayData are compared field by field.
     """
     where = path or "output"
@@ -90,6 +92,11 @@ def assert_prefix_equal(a: Any, b: Any, t: int, path: str = "") -> None:
         return
     if isinstance(a, TradeFrame):
         return  # raw inputs are not outputs
+    if isinstance(a, DayEvents):  # indexed by event: compare the events at bars ≤ t
+        ka, kb = a.bar_idx <= t, b.bar_idx <= t
+        for name in ("bar_idx", "times", "types", "marks"):
+            np.testing.assert_array_equal(getattr(a, name)[ka], getattr(b, name)[kb], err_msg=f"{where}.{name}")
+        return
     if isinstance(a, SignalSeries):
         assert (a.day, a.model_id) == (b.day, b.model_id), f"{where}: different day or model"
         np.testing.assert_array_equal(a.bar_idx[a.bar_idx <= t], b.bar_idx[b.bar_idx <= t], err_msg=f"{where}.bar_idx")

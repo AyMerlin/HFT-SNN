@@ -158,6 +158,9 @@ class HawkesConfig(_Strict):
     restarts: int = Field(5, ge=1)
     beta_init_grid: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
     max_iter: int = Field(500, gt=0)
+    # Decision U9: a bar is an event only if |d_t| exceeds this quantile of the non-zero |d| on the
+    # fit window (frozen in θ_d). None = every non-zero move (spec §4.2).
+    event_quantile: float | None = Field(0.9, gt=0, lt=1)
 
 
 class RSTDPConfig(_Strict):
