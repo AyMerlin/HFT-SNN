@@ -199,6 +199,15 @@ def test_model_id_scope():
     assert base != model_id(data={"dataset": "trades"})
 
 
+def test_model_id_includes_signal_code_version(monkeypatch):
+    from snn_hft.config import schema
+
+    run = expand_runs(make())[0]
+    before = run.model_id
+    monkeypatch.setattr(schema, "SIGNAL_CODE_VERSION", schema.SIGNAL_CODE_VERSION + 1)
+    assert run.model_id != before
+
+
 def test_run_config_yaml_roundtrip():
     cfg = make(models=[{"model": "hawkes_rstdp"}])
     run = expand_runs(cfg)[0]

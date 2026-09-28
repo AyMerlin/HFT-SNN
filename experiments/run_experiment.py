@@ -1,10 +1,11 @@
 """Run an experiment described by one YAML config.
 
     python -m experiments.run_experiment --config experiments/configs/paper_baseline.yaml
-    python -m experiments.run_experiment --config ... --set backtest.seeds=[0] --resolve-only
+    python -m experiments.run_experiment --config ... --set 'backtest.seeds=[0]' --resolve-only
 
-Every run gets ``results/<experiment>/<run_id>/config.yaml`` (fully resolved) and
-``meta.json`` (git commit, package versions, machine, seed).
+Every run gets ``results/<experiment>/<run_id>/`` with its resolved ``config.yaml`` and
+``meta.json`` (git commit, package versions, machine, seed). A full run adds the result
+files of plan §8.6, plus ``table3.csv`` / ``table4.csv`` for the experiment.
 """
 
 from __future__ import annotations
@@ -14,6 +15,9 @@ import json
 import sys
 from pathlib import Path
 
+from snn_hft.analysis.compare import format_table3, format_table4, table3, table4
+from snn_hft.backtest.backtester import Backtester
+from snn_hft.backtest.store import ResultStore
 from snn_hft.config import dump_config, expand_runs, load_config
 from snn_hft.utils.repro import collect_meta
 
@@ -34,6 +38,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="validate the config and write resolved run configs without running",
     )
+    parser.add_argument("--workers", type=int, default=None, help="worker processes (default: all cores)")
     return parser.parse_args(argv)
 
 
@@ -44,22 +49,29 @@ def main(argv: list[str] | None = None) -> int:
 
     exp_dir = cfg.output.results_dir / cfg.name
     dump_config(cfg, exp_dir / "experiment.yaml")
-    for run in runs:
-        run_dir = exp_dir / run.run_id
-        dump_config(run, run_dir / "config.yaml")
-        meta = collect_meta(seed=run.seed, model_id=run.model_id, config_file=str(args.config))
-        (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
-
     period = cfg.eval_period
     print(
         f"{cfg.name}: {len(runs)} runs, {len(cfg.models)} model(s), "
-        f"{cfg.backtest.split} period {period.start}..{period.end} ({len(period.days())} days)\n"
-        f"resolved configs written to {exp_dir}"
+        f"{cfg.backtest.split} period {period.start}..{period.end} ({len(period.days())} days)"
     )
     if args.resolve_only:
+        for run in runs:
+            run_dir = exp_dir / run.run_id
+            dump_config(run, run_dir / "config.yaml")
+            meta = collect_meta(seed=run.seed, model_id=run.model_id, config_file=str(args.config))
+            (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+        print(f"resolved configs written to {exp_dir}")
         return 0
-    print("Running experiments is not implemented yet (backtester arrives in milestone M5).", file=sys.stderr)
-    return 2
+
+    result = Backtester(cfg, workers=args.workers).run()
+    store = ResultStore(cfg.output.results_dir, cfg.name)
+    t3, t4 = table3(result.table3_rows), table4(result.table4_rows)
+    store.write_summary("table3.csv", t3)
+    store.write_summary("table4.csv", t4)
+    print("\nTable 3 — spikes\n" + format_table3(t3))
+    print("\nTable 4 — strategies\n" + format_table4(t4))
+    print(f"\nresults in {exp_dir}")
+    return 0
 
 
 if __name__ == "__main__":

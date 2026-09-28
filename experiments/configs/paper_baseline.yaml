@@ -1,4 +1,6 @@
 # E1: baseline replication — paper SNN, three strategies + naive versions, W_snn = 1.
+# Hyperparameters tuned on the validation period (M5, trial t009 of 40):
+# experiments/configs/tuned/paper_snn.yaml, docs/reports/m5_tuning_paper.md.
 inherits: base.yaml
 name: e1_paper_baseline
 description: Paper double-input SNN with pairwise STDP (Gao, Luk, Weston 2021), walk-forward 1 day.
@@ -6,7 +8,12 @@ description: Paper double-input SNN with pairwise STDP (Gao, Luk, Weston 2021), 
 models:
   - model: paper_snn
     name: paper
+    input: {new_mean: 0.1}
+    core:
+      lif: {threshold: 4.0, leak: 0.1}
+      stdp: {A: 0.02, B: -0.021}
 
 backtest:
   split: test
   w_snn: [1]
+  latencies_ms: [0, 10, 100]   # 0 = paper's next-bar entry (U2)

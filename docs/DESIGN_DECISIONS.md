@@ -291,6 +291,51 @@ M4 check (15 validation folds × 3 seeds, provisional threshold 16):
 [docs/reports/m4_spike_check.md](reports/m4_spike_check.md). Test spike accuracy 53.8 % vs a
 chance level of 53.5 %; momentum share 80.3 % vs 80.6 % for random timing; no health warnings.
 
+### M5 — strategies, backtester, benchmarks, tuning
+
+**I33 — Zero tolerance in the direction rules.** `position_flag = 0`, `ALF = 0` and `%K = 50`
+mean "no transaction" (Strategy Logic 1–3). Differences within 1e-12 of the price count as
+exactly zero, so floating-point noise on flat prices never opens a position.
+
+**I34 — Entries on the last bar.** A signal whose entry bar is the day's last bar opens and
+closes on that bar (return 0) and counts as a trade; a signal with no bar left to enter is not
+traded. With latency, the exit is `holding` bars after the delayed entry, capped at the last bar.
+
+**I35 — Naive benchmark.** For each day, rule and repetition r (0..R−1, R = 100), the model's
+number of signals is drawn uniformly without replacement from the bars the rule can trade
+(`t ≥ min_history`, `t ≤ n − 1 − entry_delay`); the random stream depends on r, the day and the
+model's seed. The same samples serve every latency. Table-4 metrics are computed per
+repetition and then averaged (mean ± std over repetitions); averaging the daily P&L first would
+understate the volatility of a single naive backtest. The naive spike accuracy is the empirical
+chance level; the exact expected chance level (`base_accuracy`) is reported alongside.
+
+**I36 — Big-move benchmark (U5) details.** Target rate = the model's mean signal rate on the
+fold's training days; the threshold is the matching quantile of `|d_t|` on those days; a signal
+fires when `|d_t|` is strictly above it. It is evaluated exactly like the model (spikes and all
+strategies).
+
+**I37 — Performance details.** Daily P&L includes every test day (0 on days without trades);
+standard deviations use ddof = 1; win rate and profit/loss ratio pool all trades of the test
+period; transactions per day = trades / test days.
+
+**I38 — Two-phase backtester.** Phase 1 computes and caches one fold result per
+(model id, test day, W_snn, W_h, seed) in parallel worker processes; phase 2 evaluates each
+signal job (all rules, latencies, naive repetitions and the big-move benchmark) from the cache.
+Result-layout additions to §8.6: `health.csv` (health warnings per day), and in
+`daily_pnl.parquet` a `source` column (`model`, `big_move`, `naive_mean`) and `latency_ms`.
+`signals.parquet` is identical for the three rules and is hard-linked. `trades.parquet` costs
+about 4 MB per run and day with three latencies, so by default it is written only for the lowest
+seed of each job (`output.save_trades = "first_seed"`; sweeps use `"none"`).
+
+**I39 — Tuning protocol (§12).** `experiments/tune.py`. Shared grid, identical for both models:
+LIF threshold {4, 8, 16, 32}, leak {0.02, 0.05, 0.1} per tick, `new_mean` {0.1, 0.2, 0.3},
+STDP scale {0.5, 1, 2} (multiplies `A` and `B`). The improved model adds `γ` {0.1, 0.3, 1} and
+`tau_z_bars` {1, 3, 10}. Budget: 40 distinct grid points drawn uniformly (grid seed 0) for each
+model, evaluated with `W_snn = 1` (and `W_h = 1`) on all 45 validation days with seeds 0 and 1.
+Objective: mean test-day spike accuracy. A trial is admissible if at most 5 % of its
+validation days fail a health check. Only the signal phase runs, so P&L never enters the choice.
+The chosen config is written to `experiments/configs/tuned/`.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie

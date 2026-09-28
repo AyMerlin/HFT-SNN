@@ -19,6 +19,10 @@ from snn_hft.utils.repro import stable_hash
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 
+# Bump whenever code that determines signals changes (preprocessing, encoder, SNN kernels,
+# Hawkes model): it is part of every model id, so stale cached signals are never reused.
+SIGNAL_CODE_VERSION = 1
+
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -277,6 +281,11 @@ class BacktestConfig(_Strict):
 class OutputConfig(_Strict):
     results_dir: Path = Path("results")
     cache_dir: Path = Path("cache")
+    # trades.parquet costs ~1–4 MB per run and day: keep it for the lowest seed of each job by default
+    save_trades: Literal["none", "first_seed", "all"] = "first_seed"
+    # per-bar pool spike counts and input probabilities in the fold cache (needed for signals.parquet
+    # and the diagnostics of §9.2; tuning only needs metrics)
+    cache_diagnostics: bool = True
 
 
 # --------------------------------------------------------------------------- experiment / run
@@ -344,6 +353,7 @@ class RunConfig(_Common):
         model's display name is excluded, so renaming a model keeps its cache.
         """
         payload = {
+            "code": SIGNAL_CODE_VERSION,
             "data": self.data.model_dump(mode="json", include={"venue", "symbol", "dataset"}),
             "bars": self.bars.model_dump(mode="json"),
             "signal": self.signal.model_dump(mode="json", exclude={"name"}),
