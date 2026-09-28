@@ -6,9 +6,8 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-# Framework modules the retrieval layer may import (the shared definition of the data format).
-# Empty until the FI-2010 format module exists.
-ALLOWED_FROM_RETRIEVAL: set[str] = set()
+# Framework modules the retrieval layer may import: the shared definition of the data format.
+ALLOWED_FROM_RETRIEVAL: set[str] = {"snn_hft.data.fi2010.format"}
 
 
 def imported_modules(path: Path, source: str | None = None) -> set[str]:
