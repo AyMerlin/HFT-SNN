@@ -115,6 +115,29 @@ firing rate of both models is logged per day (`input_stats.csv`), so any differe
 Proposed for the M8 check-in: a control run of the improved model at the baseline's tuned
 `new_mean`, which separates the input-rate effect from the effect of the Hawkes memory.
 
+
+**U8 — Bar size: 100 `aggTrades` per vwap bar (2026-09-28).**
+Paper and spec: `num = 10` transactions per bar.
+Decision: `bars.vwap_num = 100` for all main experiments (`base.yaml`); the literal `num = 10`
+results are kept as E1-num10 (`experiments/configs/paper_baseline_num10.yaml`).
+Why: E1 at `num = 10` showed random timing as profitable as the SNN. At 10 BTCUSDT `aggTrades`
+a bar lasts ~0.1 s, and consecutive vwap moves continue (sign autocorrelation 0.71 at lag 1,
+0.52 at lag 3), so the paper's direction rules win ~75 % of trades at *any* time; in the paper's
+crude-oil data random timing won 51.2 %. The bar size was chosen by a rule that does not use the
+model: the smallest `num` at which the random-timing momentum strategy has no edge (win rate
+≤ 52 %) on validation days (2025-11-01 → 11-10):
+
+| num | bars/day | median bar | sign autocorr lag 1 / 3 | random-timing win rate |
+|---|---|---|---|---|
+| 10 | 184k | 0.1 s | 0.71 / 0.52 | 75.3 % |
+| 30 | 61k | 0.9 s | 0.59 / 0.24 | 60.2 % |
+| 100 | 18k | 4.6 s | 0.28 / 0.04 | 52.5 % |
+| 300 | 6k | 16 s | 0.17 / 0.01 | 50.3 % |
+
+The paper does not report its bar count; with the tuned signal rate (~16 %), 100-trade bars give
+~2,900 signals per day, close to the paper's 2,586. Consequences: holding 3 bars ≈ 15 s, next-bar
+entry is achievable within seconds, and latencies up to 1 s are evaluated.
+
 ---
 
 ## [I] Implementation decisions
@@ -336,9 +359,19 @@ Objective: mean test-day spike accuracy. A trial is admissible if at most 5 % of
 validation days fail a health check. Only the signal phase runs, so P&L never enters the choice.
 The chosen config is written to `experiments/configs/tuned/`.
 
-Baseline tuning result: threshold 4, leak 0.1, `new_mean` 0.1, STDP scale 2 (validation accuracy
-54.61 % vs chance 52.45 %) — [docs/reports/m5_tuning_paper.md](reports/m5_tuning_paper.md).
-E1 on the test period: [docs/reports/m5_e1_baseline.md](reports/m5_e1_baseline.md).
+First baseline tuning (num = 10): threshold 4, leak 0.1, `new_mean` 0.1, STDP scale 2 (validation
+accuracy 54.61 % vs chance 52.45 %) — [m5_tuning_paper_num10.md](reports/m5_tuning_paper_num10.md);
+E1 at num = 10: [m5_e1_baseline_num10.md](reports/m5_e1_baseline_num10.md).
+
+**I41 — Tuning revision (after E1-num10).** (a) The paper names two encoding hyperparameters,
+`new_mean` and `new_stdev`; the first grid omitted `new_stdev`, which decides how much of the move
+size reaches the network (with heavy-tailed `d_t`, `new_std = 0.1` leaves the summed input of
+~80 % of bars at exactly `2·new_mean`). It is now tuned for the baseline, {0.05, 0.1, 0.2, 0.4};
+it has no counterpart in the improved model, which tunes `γ` and `tau_z_bars` instead.
+(b) The first tuning chose values at the edges of the grid, so the shared grid was widened:
+threshold {2, 4, 8, 16, 32}, leak {0.02, 0.05, 0.1, 0.2}, `new_mean` {0.05, 0.1, 0.2, 0.3},
+STDP scale {0.5, 1, 2, 4}. (c) Budget: 80 trials for each model (runs are ~10× cheaper at
+num = 100). The improved model has not been tuned yet, so both models get the same budget.
 
 **I40 — Signal code version in model ids.** `SIGNAL_CODE_VERSION` (schema.py) is part of every
 model id; it is bumped whenever preprocessing, encoding, the SNN kernels or the Hawkes model

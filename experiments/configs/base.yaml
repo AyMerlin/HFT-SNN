@@ -7,6 +7,9 @@ data:
   symbol: BTCUSDT
   dataset: aggTrades          # decision U1
 
+bars:
+  vwap_num: 100               # decision U8: 100 aggTrades per vwap bar (paper's regime; literal 10 in *_num10 configs)
+
 periods:                      # decision U4
   data:       {start: 2025-09-27, end: 2026-09-26}
   history_days: 20            # max(W_snn) + max(W_h) = 10 + 10

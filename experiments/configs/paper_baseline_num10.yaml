@@ -1,0 +1,20 @@
+# E1 (literal bar size): paper SNN with the paper's 10 transactions per vwap bar.
+# Hyperparameters tuned on the validation period (M5, trial t009 of 40):
+# experiments/configs/tuned/paper_snn_num10.yaml, docs/reports/m5_tuning_paper_num10.md.
+inherits: base.yaml
+bars: {vwap_num: 10}
+name: e1_paper_baseline_num10
+description: Paper double-input SNN with pairwise STDP (Gao, Luk, Weston 2021), walk-forward 1 day.
+
+models:
+  - model: paper_snn
+    name: paper
+    input: {new_mean: 0.1}
+    core:
+      lif: {threshold: 4.0, leak: 0.1}
+      stdp: {A: 0.02, B: -0.021}
+
+backtest:
+  split: test
+  w_snn: [1]
+  latencies_ms: [0, 10, 100]   # 0 = paper's next-bar entry (U2)

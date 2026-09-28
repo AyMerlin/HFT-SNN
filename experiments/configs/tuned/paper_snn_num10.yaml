@@ -1,19 +1,19 @@
 # Tuned on the validation period: 2025-10-17..2025-11-30, seeds [0, 1],
-# 80 trials (grid seed 0); best trial t018: validation accuracy 0.5386 (chance 0.5011).
+# 40 trials (grid seed 0); best trial t009: validation accuracy 0.5461 (chance 0.5245).
 name: paper
 model: paper_snn
 input:
   ticks_per_bar: 10
-  new_mean: 0.05
+  new_mean: 0.1
 zscore:
-  new_std: 0.2
+  new_std: 0.1
   stats_source: train_window
 core:
   hidden_size: 64
   lif:
     u_rest: 0.0
     threshold: 4.0
-    leak: 0.2
+    leak: 0.1
     leak_mode: subtractive
     tau_m: 20.0
     t_ref: 2
@@ -23,8 +23,8 @@ core:
     w_init_high: 0.6
     w_max: 1.0
   stdp:
-    A: 0.01
-    B: -0.0105
+    A: 0.02
+    B: -0.021
     tau_plus: 5.0
     tau_minus: 5.0
     pairing: all_to_all

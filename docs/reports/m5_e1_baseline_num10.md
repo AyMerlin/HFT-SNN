@@ -1,14 +1,14 @@
-# M5 — E1 baseline replication (check-in)
+# M5 — E1 baseline replication, literal bar size (num = 10)
 
 **Setup.** Paper double-input SNN with pairwise STDP, tuned on the validation period
-([m5_tuning_paper.md](m5_tuning_paper.md): threshold 4, leak 0.1, `new_mean` 0.1, A/B = 0.02/−0.021),
+([m5_tuning_paper_num10.md](m5_tuning_paper_num10.md): threshold 4, leak 0.1, `new_mean` 0.1, A/B = 0.02/−0.021),
 walk-forward `W_snn = 1` on the 300 test days (2025-12-01 → 2026-09-26), BTCUSDT `aggTrades`,
 `vwap_num = 10`, seeds 0–4, naive benchmark with 100 repetitions per day, big-move benchmark,
 latencies 0 / 10 / 100 ms, fee-free (U3). Runtime 21 min on 8 cores. Full tables:
-[e1_tables.md](e1_tables.md); per-run files in `results/e1_paper_baseline/`.
+[e1_tables_num10.md](e1_tables_num10.md); per-run files in `results/e1_paper_baseline_num10/`.
 
 ```bash
-.venv/bin/python -m experiments.run_experiment --config experiments/configs/paper_baseline.yaml
+.venv/bin/python -m experiments.run_experiment --config experiments/configs/paper_baseline_num10.yaml
 ```
 
 ## Spikes (Table 3)

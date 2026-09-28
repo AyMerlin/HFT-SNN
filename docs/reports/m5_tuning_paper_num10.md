@@ -1,4 +1,4 @@
-# M5 tuning — paper SNN (validation period)
+# M5 tuning — paper SNN, literal bar size (num = 10)
 
 Protocol: [DESIGN_DECISIONS I39](../DESIGN_DECISIONS.md). 40 distinct points of the shared grid
 (threshold × leak × `new_mean` × STDP scale), walk-forward `W_snn = 1` on all 45 validation days
@@ -7,8 +7,8 @@ accuracy; admissible if at most 5 % of the days fail a health check. Chance leve
 timing) on these days: 52.45 %.
 
 ```bash
-.venv/bin/python -m experiments.tune --config experiments/configs/paper_baseline.yaml \
-  --trials 40 --seeds 0 1 --out experiments/configs/tuned/paper_snn.yaml
+.venv/bin/python -m experiments.tune --config experiments/configs/paper_baseline_num10.yaml \
+  --trials 40 --seeds 0 1 --out experiments/configs/tuned/paper_snn_num10.yaml
 ```
 
 **Chosen: t009** — threshold 4, leak 0.1 per tick, `new_mean` 0.1, STDP scale 2

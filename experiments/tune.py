@@ -32,10 +32,14 @@ from snn_hft.config.loader import apply_override
 from snn_hft.config.schema import ExperimentConfig
 
 SHARED_GRID: dict[str, list[Any]] = {
-    "core.lif.threshold": [4.0, 8.0, 16.0, 32.0],
-    "core.lif.leak": [0.02, 0.05, 0.1],
-    "input.new_mean": [0.1, 0.2, 0.3],
-    "stdp_scale": [0.5, 1.0, 2.0],  # multiplies A and B together
+    "core.lif.threshold": [2.0, 4.0, 8.0, 16.0, 32.0],
+    "core.lif.leak": [0.02, 0.05, 0.1, 0.2],
+    "input.new_mean": [0.05, 0.1, 0.2, 0.3],
+    "stdp_scale": [0.5, 1.0, 2.0, 4.0],  # multiplies A and B together
+}
+# Model-specific parameters, tuned within the same trial budget.
+PAPER_GRID: dict[str, list[Any]] = {
+    "zscore.new_std": [0.05, 0.1, 0.2, 0.4],  # the paper names new_stdev as a hyperparameter
 }
 IMPROVED_GRID: dict[str, list[Any]] = {
     "rstdp.gamma": [0.1, 0.3, 1.0],
@@ -44,7 +48,8 @@ IMPROVED_GRID: dict[str, list[Any]] = {
 
 
 def grid_for(model_type: str) -> dict[str, list[Any]]:
-    return {**SHARED_GRID, **(IMPROVED_GRID if model_type == "hawkes_rstdp" else {})}
+    extra = IMPROVED_GRID if model_type == "hawkes_rstdp" else PAPER_GRID
+    return {**SHARED_GRID, **extra}
 
 
 def sample_trials(grid: dict[str, list[Any]], n: int, seed: int) -> list[dict[str, Any]]:
@@ -111,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--set", dest="overrides", action="append", default=[], metavar="KEY.PATH=VALUE")
-    parser.add_argument("--trials", type=int, default=40)
+    parser.add_argument("--trials", type=int, default=80)
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1])
     parser.add_argument("--grid-seed", type=int, default=0)
     parser.add_argument("--max-unhealthy", type=float, default=0.05)
