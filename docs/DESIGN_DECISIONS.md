@@ -512,6 +512,14 @@ trade label enter at t+1 and exit at t+4 and are not affected (random-walk win r
 change: the paper's smoothing is kept for the replication; the effect is reported.
 [docs/reports/vwap_smoothing_check.md](reports/vwap_smoothing_check.md).
 
+**I56 — Price-difference check.** Differencing removes the intraday trend as the paper intends:
+the drift left in d_t is < 2 % of its standard deviation on every validation day and explains
+≤ 0.03 % of its variance. The paper's "magnitude bias" between hours is mostly removed by the
+trade-count bars (per-bar |d| varies ≈ 1.2× across hours while bar counts vary ≈ 3×), not by the
+differencing. d_t stays in USD as in the paper; for multi-day training windows (E4) price-level
+changes between days rescale it relative to the z-score statistics. No code change.
+[docs/reports/differencing_check.md](reports/differencing_check.md).
+
 ### Planned (to be recorded in detail when implemented)
 
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,
