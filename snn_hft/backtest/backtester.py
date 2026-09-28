@@ -43,6 +43,7 @@ from snn_hft.signals.factory import make_signal_model
 from snn_hft.signals.random_signal import RandomSignalModel
 from snn_hft.strategy.direction_rules import DirectionRule, make_rule
 from snn_hft.strategy.execution import TRADE_FRAME_COLUMNS, per_signal
+from snn_hft.strategy.strategy import Strategy
 from snn_hft.utils.seeding import rng_for
 
 SPIKE_FIELDS = list(DaySpikeMetrics.__dataclass_fields__)
@@ -210,6 +211,13 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
     rules = {r.rule: make_rule(r.rule, s.momentum_window, s.alf_n, s.stoch_n) for r in job.runs}
     latencies = [float(x) for x in run0.latencies_ms]
     executions = {lat: run0.execution.model_copy(update={"latency_ms": lat}) for lat in latencies}
+    # §7.3: one Strategy per rule and latency around this job's signal model; the model's signals
+    # come from the cache (phase 1), and the same Strategy trades the big-move benchmark's signals.
+    base = {r.rule: Strategy.from_config(r) for r in job.runs}
+    strategies = {
+        (name, lat): Strategy(base[name].signal_model, base[name].direction_rule, executions[lat])
+        for name in rules for lat in latencies
+    }
     reps = run0.benchmarks.naive_reps
     splitter = WalkForwardSplitter(run0.w_snn)
     n_days = len(test_days)
@@ -231,6 +239,7 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
             if len(bars) != sig.n_bars:
                 raise RuntimeError(f"{day}: cached signals have {sig.n_bars} bars, bar cache {len(bars)}")
             de = DayEvaluator(bars, rules, executions, evaluator)
+            day_bars = DayData(day=day, bars=bars)
 
             spike_rows.append({"day": day, "split": "test", "source": "model", "rule": "", **de.spike(sig.bar_idx).as_dict()})
             for m in fold.train_metrics:
@@ -256,14 +265,17 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
                     naive_spikes = pd.DataFrame([de.spike(b).as_dict() for b in samples]).mean().to_dict()
                     spike_rows.append({"day": day, "split": "test", "source": "naive", "rule": name, **naive_spikes})
                 for lat in latencies:
-                    daily[name, lat, "model"].append({"day": day, **daily_aggregate(de.net_returns(name, lat, sig.bar_idx))})
+                    strategy = strategies[name, lat]
+                    frame = strategy.trades_frame(day_bars, sig)
+                    daily[name, lat, "model"].append({"day": day, **daily_aggregate(frame["net_return"].to_numpy())})
                     if run0.benchmarks.big_move:
-                        daily[name, lat, "big_move"].append({"day": day, **daily_aggregate(de.net_returns(name, lat, big_sig.bar_idx))})
+                        big_trades = strategy.trades_frame(day_bars, big_sig)
+                        daily[name, lat, "big_move"].append({"day": day, **daily_aggregate(big_trades["net_return"].to_numpy())})
+                    # Naive repetitions: the same rule and execution, vectorised over all bars of the day.
                     for rep, b in enumerate(samples):
                         agg = daily_aggregate(de.net_returns(name, lat, b))
                         naive_daily[name, lat][rep, di] = [agg[c] for c in DAILY_COLUMNS]
                     if name in writers:
-                        frame = de.trades(name, lat, sig.bar_idx)
                         frame.insert(0, "latency_ms", lat)
                         frame.insert(0, "day", day)
                         writers[name].write_table(pa.Table.from_pandas(frame, schema=_trade_schema(), preserve_index=False))

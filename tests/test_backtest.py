@@ -159,3 +159,28 @@ def test_tables_aggregate_over_seeds_and_render_markdown():
     t4 = table4(rows)
     assert t4.loc[0, "sharpe"] == pytest.approx(30.0) and t4.loc[0, "sharpe_std"] == pytest.approx(np.std([20, 40], ddof=1))
     assert "| momentum | model |" in table4_markdown(t4, 0.0)
+
+
+def test_strategy_class_and_vectorised_day_evaluator_agree():
+    """The model's trades go through Strategy (§7.3); naive repetitions use the vectorised path."""
+    from snn_hft.backtest.backtester import DayEvaluator
+    from snn_hft.config.schema import ExecutionConfig
+    from snn_hft.data.containers import DayData
+    from snn_hft.data.sources import SyntheticDataSource
+    from snn_hft.evaluation.spike_metrics import SpikeEvaluator
+    from snn_hft.preprocessing.bars import aggregate_vwap
+    from snn_hft.signals.base import SignalSeries
+    from snn_hft.strategy.direction_rules import make_rule
+    from snn_hft.strategy.strategy import Strategy
+
+    d = date(2025, 1, 5)
+    bars = aggregate_vwap(SyntheticDataSource(trades_per_day=5_000, seed=2).fetch_day("S", d).df, 10)
+    sig = SignalSeries(day=d, bar_idx=np.sort(np.random.default_rng(0).choice(len(bars), 120, replace=False)),
+                       n_bars=len(bars), model_id="m")
+    rules = {n: make_rule(n) for n in ("momentum", "alexanders_filter", "stochastic_oscillator")}
+    executions = {lat: ExecutionConfig(latency_ms=lat) for lat in (0.0, 5_000.0)}
+    de = DayEvaluator(bars, rules, executions, SpikeEvaluator(3))
+    for name, rule in rules.items():
+        for lat, ex in executions.items():
+            via_strategy = Strategy(None, rule, ex).trades_frame(DayData(day=d, bars=bars), sig)["net_return"].to_numpy()
+            np.testing.assert_array_equal(via_strategy, de.net_returns(name, lat, sig.bar_idx))
