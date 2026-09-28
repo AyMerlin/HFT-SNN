@@ -134,6 +134,21 @@ def compute_folds(run: RunConfig, folds: Sequence[FoldSpec]) -> list[dict]:
     return summaries
 
 
+def compute_hawkes_params(run: RunConfig, days: Sequence[date]) -> int:
+    """Fit θ_d for the given days into the parameter cache (phase 0, worker entry point)."""
+    from snn_hft.models.hawkes.provider import HawkesParamProvider
+    from snn_hft.preprocessing.hawkes_steps import candidate_events_source
+    from snn_hft.signals.factory import hawkes_sources
+
+    bars_for_day, store = hawkes_sources(run)
+    provider = HawkesParamProvider(
+        run.signal.hawkes, run.w_h, candidate_events_source(bars_for_day, run.signal.hawkes.time_axis), store
+    )
+    for day in days:
+        provider.params_for(day)
+    return len(days)
+
+
 # --------------------------------------------------------------------------- phase 2: evaluation
 
 
@@ -202,6 +217,7 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
     daily: dict[tuple, list[dict]] = defaultdict(list)
     naive_daily = {(r, lat): np.zeros((reps, n_days, len(DAILY_COLUMNS))) for r in rules for lat in latencies}
     spike_rows, signal_frames, input_rows, health_rows = [], [], [], []
+    hawkes_meta: dict[str, dict] = {}
     writers = {}
     if save_trades:
         for run in job.runs:
@@ -259,6 +275,7 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
                 {"day": day, "bar_idx": sig.bar_idx, **{k: sig.diagnostics[k][sig.bar_idx] for k in pools}}
             ))
             input_rows += fold.input_stats
+            hawkes_meta.update(fold.extra.get("hawkes", {}))
             health_rows.append({"day": day, "split": "test", "warnings": "; ".join(fold.test_health)})
             health_rows += [{"day": m["day"], "split": "train", "warnings": "; ".join(m["health"])} for m in fold.train_metrics]
     finally:
@@ -316,8 +333,13 @@ def evaluate_job(job: SignalJob, test_days: Sequence[date], save_trades: bool = 
         results.write_frame(run.run_id, "health.csv", health)
         if signals_path is None:
             signals_path = results.write_frame(run.run_id, "signals.parquet", signals)
+            hawkes_paths = {
+                day: results.write_json(run.run_id, f"hawkes/{day}.json", theta) for day, theta in sorted(hawkes_meta.items())
+            }
         else:
             results.link(signals_path, run.run_id, "signals.parquet")
+            for day, path in hawkes_paths.items():
+                results.link(path, run.run_id, f"hawkes/{day}.json")
     return summary
 
 
@@ -351,10 +373,49 @@ class Backtester:
             tasks += [(job.run, missing[i : i + size]) for i in range(0, len(missing), size)]
         return tasks
 
+    def _hawkes_tasks(self, jobs: list[SignalJob], test_days: list[date]) -> list[tuple[RunConfig, list[date]]]:
+        """Days whose θ_d is needed and not cached, one list per distinct Hawkes setting."""
+        from snn_hft.models.hawkes.provider import HawkesParamProvider
+        from snn_hft.signals.factory import hawkes_sources
+
+        needed: dict[tuple, tuple[RunConfig, set[date]]] = {}
+        for job in jobs:
+            run = job.run
+            if not run.signal.uses_hawkes:
+                continue
+            key = (run.signal.hawkes.model_dump_json(), run.w_h)
+            days = needed.setdefault(key, (run, set()))[1]
+            for fold in WalkForwardSplitter(run.w_snn).folds(test_days):
+                days.update(fold.train_days)
+                days.add(fold.test_day)
+        tasks = []
+        for run, days in needed.values():
+            _, store = hawkes_sources(run)
+            probe = HawkesParamProvider(run.signal.hawkes, run.w_h, events_for_day=None, store=store)
+            missing = sorted(d for d in days if not store.has(probe.key(d)))
+            size = max(1, math.ceil(len(missing) / (self.workers * 2)))
+            tasks += [(run, missing[i : i + size]) for i in range(0, len(missing), size)]
+        return tasks
+
+    def compute_hawkes(self, jobs: list[SignalJob]) -> None:
+        """Phase 0: fit every needed θ_d once, in parallel, so signal workers only read the cache."""
+        tasks = self._hawkes_tasks(jobs, self.cfg.eval_period.days())
+        if not tasks:
+            return
+        n = sum(len(d) for _, d in tasks)
+        self.log(f"hawkes: fitting θ_d for {n} (day, setting) pairs")
+        t0 = time.time()
+        with ProcessPoolExecutor(max_workers=min(self.workers, len(tasks))) as pool:
+            done = 0
+            for fut in as_completed([pool.submit(compute_hawkes_params, run, days) for run, days in tasks]):
+                done += fut.result()
+                self.log(f"  hawkes {done}/{n}, {time.time() - t0:.0f}s")
+
     def compute_signals(self) -> list[SignalJob]:
         """Phase 1: fit + generate every missing fold, in parallel, into the signal cache."""
         jobs = signal_jobs(self.cfg)
         test_days = self.cfg.eval_period.days()
+        self.compute_hawkes(jobs)
         tasks = self._signal_tasks(jobs, test_days)
         n_folds = sum(len(f) for _, f in tasks)
         self.log(f"{self.cfg.name}: {len(jobs)} signal jobs × {len(test_days)} days; {n_folds} folds to compute")

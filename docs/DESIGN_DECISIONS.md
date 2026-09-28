@@ -454,6 +454,21 @@ With equal `new_mean` both encodings give similar realised input rates (0.069 vs
 training-day statistics. The Hawkes input is about three times as strongly related to the next
 moves as the z-score input (Spearman 0.25 vs 0.07–0.09).
 
+### M8 — improved signal model, E2, A1
+
+**I51 — Hawkes precompute phase.** Before the signal phase, the backtester collects every
+(day, Hawkes setting, W_h) that any fold needs (training and test days), fits the missing θ_d in
+parallel and caches them. Signal workers then only read θ_d, so no two workers fit the same day.
+
+**I52 — Stored Hawkes parameters.** Each improved run stores θ_d of every day it used (training
+and test days) as `hawkes/<YYYY-MM-DD>.json` (§8.6): the ten parameters, event threshold, ρ(A),
+branching matrix, log-likelihood per event, convergence, event count and fit days. The files are
+shared by the three rule directories of a job via hard links.
+
+**I53 — Model structure.** `HawkesRSTDPSignalModel` subclasses the shared `SNNSignalModel` and only
+supplies the Hawkes pipeline, the extended topology and the reward streams (`mom`, `rev`). It keeps
+one parameter provider for its lifetime, so θ_d is reused across folds.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,

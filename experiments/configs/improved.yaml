@@ -1,13 +1,119 @@
-# E2: improved model, paper-analogous windows — Hawkes input + R-STDP pools, W_snn = 1, W_h = 1.
+# E2: improved model (tuned on validation, trial t076: experiments/configs/tuned/hawkes_rstdp.yaml),
+# evaluated with W_snn = 1, W_h = 1 on the E1 test days, together with
+#  - A1 ablation: the same model without the R-STDP pools (Problem 1 only),
+#  - input-rate controls (U7): the improved model at the baseline's new_mean (0.05) and the
+#    paper SNN (tuned, E1) at the improved model's new_mean (0.3).
 inherits: base.yaml
 name: e2_improved
-description: Bivariate marked Hawkes intensity input with reward-modulated STDP pools H_mom / H_rev.
-
+description: E2 (improved, W_snn = 1, W_h = 1) with ablation A1 and the input-rate
+  controls, on the E1 test days.
 models:
-  - model: hawkes_rstdp
-    name: improved
-
+- name: improved
+  model: hawkes_rstdp
+  input: &id001
+    ticks_per_bar: 10
+    new_mean: 0.3
+  core: &id002
+    hidden_size: 64
+    lif:
+      u_rest: 0.0
+      threshold: 32.0
+      leak: 0.1
+      leak_mode: subtractive
+      tau_m: 20.0
+      t_ref: 2
+    synapse:
+      delay_ticks: 1
+      w_init_low: 0.2
+      w_init_high: 0.6
+      w_max: 1.0
+    stdp:
+      A: 0.005
+      B: -0.00525
+      tau_plus: 5.0
+      tau_minus: 5.0
+      pairing: all_to_all
+    warm_start: false
+    epochs: 1
+    learn_during_test: false
+    reset_state_per_day: true
+  hawkes: &id003
+    time_axis: bar_index
+    mark_fn: linear_normalized
+    limit: right
+    restarts: 5
+    beta_init_grid:
+    - 0.1
+    - 0.5
+    - 1.0
+    - 2.0
+    max_iter: 500
+    event_quantile: 0.95
+  rstdp: &id004
+    gamma: 0.1
+    tau_z_bars: 1.0
+    reset_eligibility_on_reward: false
+    delivery: bar_end
+  use_rstdp_pools: true
+  keep_direction_pools: true
+- name: a1_no_rstdp
+  model: hawkes_rstdp
+  input: *id001
+  core: *id002
+  hawkes: *id003
+  rstdp: *id004
+  use_rstdp_pools: false
+  keep_direction_pools: true
+- name: improved_rate005
+  model: hawkes_rstdp
+  input:
+    ticks_per_bar: 10
+    new_mean: 0.05
+  core: *id002
+  hawkes: *id003
+  rstdp: *id004
+  use_rstdp_pools: true
+  keep_direction_pools: true
+- name: paper_rate03
+  model: paper_snn
+  input:
+    ticks_per_bar: 10
+    new_mean: 0.3
+  zscore:
+    new_std: 0.2
+    stats_source: train_window
+  core:
+    hidden_size: 64
+    lif:
+      u_rest: 0.0
+      threshold: 4.0
+      leak: 0.2
+      leak_mode: subtractive
+      tau_m: 20.0
+      t_ref: 2
+    synapse:
+      delay_ticks: 1
+      w_init_low: 0.2
+      w_init_high: 0.6
+      w_max: 1.0
+    stdp:
+      A: 0.01
+      B: -0.0105
+      tau_plus: 5.0
+      tau_minus: 5.0
+      pairing: all_to_all
+    warm_start: false
+    epochs: 1
+    learn_during_test: false
+    reset_state_per_day: true
 backtest:
   split: test
-  w_snn: [1]
-  w_h: [1]
+  w_snn:
+  - 1
+  w_h:
+  - 1
+  latencies_ms:
+  - 0
+  - 10
+  - 100
+  - 1000

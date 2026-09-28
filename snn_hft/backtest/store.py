@@ -29,8 +29,11 @@ class ResultStore:
         (path / "meta.json").write_text(json.dumps(collect_meta(seed=run.seed, model_id=run.model_id, **meta), indent=2, default=str))
         return path
 
-    def write_json(self, run_id: str, name: str, obj: Any) -> None:
-        (self.run_dir(run_id) / name).write_text(json.dumps(obj, indent=2, default=_json_default))
+    def write_json(self, run_id: str, name: str, obj: Any) -> Path:
+        path = self.run_dir(run_id) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(obj, indent=2, default=_json_default))
+        return path
 
     def write_frame(self, run_id: str, name: str, df: pd.DataFrame) -> Path:
         path = self.run_dir(run_id) / name
@@ -43,6 +46,7 @@ class ResultStore:
     def link(self, source: Path, run_id: str, name: str) -> None:
         """Hard-link a strategy-independent file into another run directory (no extra disk)."""
         target = self.run_dir(run_id) / name
+        target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             target.unlink()
         try:
