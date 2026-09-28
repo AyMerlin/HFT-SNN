@@ -22,9 +22,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+lob = ["orjson>=3.9"]  # LOB project (branch feature/lob-snn-benchmark); faster JSON in retrieval/
 
 [tool.setuptools.packages.find]
-include = ["snn_hft*"]
+include = ["snn_hft*", "retrieval*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

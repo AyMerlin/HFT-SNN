@@ -10,7 +10,8 @@ dist/
 .DS_Store
 
 # Large or generated artifacts (never committed)
-data/
+# Top-level data folder only; must not match the snn_hft/data/ package.
+/data/
 results/
 cache/
 logs/
