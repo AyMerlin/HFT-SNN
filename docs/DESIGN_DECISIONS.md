@@ -336,6 +336,14 @@ Objective: mean test-day spike accuracy. A trial is admissible if at most 5 % of
 validation days fail a health check. Only the signal phase runs, so P&L never enters the choice.
 The chosen config is written to `experiments/configs/tuned/`.
 
+Baseline tuning result: threshold 4, leak 0.1, `new_mean` 0.1, STDP scale 2 (validation accuracy
+54.61 % vs chance 52.45 %) — [docs/reports/m5_tuning_paper.md](reports/m5_tuning_paper.md).
+E1 on the test period: [docs/reports/m5_e1_baseline.md](reports/m5_e1_baseline.md).
+
+**I40 — Signal code version in model ids.** `SIGNAL_CODE_VERSION` (schema.py) is part of every
+model id; it is bumped whenever preprocessing, encoding, the SNN kernels or the Hawkes model
+change, so cached signals from older code are never reused.
+
 ### Planned (to be recorded in detail when implemented)
 
 - M2/M7: the Hawkes step needs the `W_h` days before each transformed day, which can lie

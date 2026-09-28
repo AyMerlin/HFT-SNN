@@ -73,7 +73,7 @@ Run the tests:
 | M2 | baseline preprocessing, causality harness | done |
 | M3 | SNN engine and profiling | done |
 | M4 | paper SNN signal model, spike evaluator | done — [spike check](docs/reports/m4_spike_check.md) |
-| M5 | strategies, backtester, E1 | in progress |
+| M5 | strategies, backtester, E1 | done — [E1 report](docs/reports/m5_e1_baseline.md) |
 | M6 | Hawkes module | |
 | M7 | improved preprocessing | |
 | M8 | R-STDP, improved model, E2, A1 | |
