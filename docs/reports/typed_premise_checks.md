@@ -105,6 +105,16 @@ Single features:
 | asym_2 | 0.497 |
 | log_lam_total | 0.501 |
 
+Value of typing (fee-free, paper execution): how much a typed strategy could earn over always
+following if its type came from this classifier, compared with a perfect (non-causal) type.
+
+| momentum strategy, held-out validation bars | bp per trade | trades faded |
+|---|---|---|
+| always follow (untyped) | +0.087 | 0 % |
+| fade when the classifier says reversion (p < 0.5) | +0.090 | 4% |
+| fade the 10 % most reversion-like bars | +0.096 | 10 % |
+| oracle: true type known (not causal, upper bound) | +2.524 | 48% |
+
 ## A2 — pool check (tuned improved model, validation folds)
 
 D = spikes(H_mom) − spikes(H_rev) summed over the last τ_z bars (τ_z = 1 bar for the tuned model).

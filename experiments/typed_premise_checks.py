@@ -161,7 +161,7 @@ def a1b_day(day: date, q: float = 0.9) -> pd.DataFrame:
     sgn = dirs[t]
     lam_dir = np.where(sgn > 0, lam[t, 0], lam[t, 1])
     lam_opp = np.where(sgn > 0, lam[t, 1], lam[t, 0])
-    feats = {"y": (ret[t] > 0).astype(float), "day": day}
+    feats = {"y": (ret[t] > 0).astype(float), "ret": ret[t], "day": day}
     for k in range(3):
         feats[f"move_{k}"] = sgn * d[t - k] / scale  # signed move k bars back, in the trade direction
         feats[f"size_{k}"] = np.log1p(np.abs(d[t - k]) / scale)
@@ -407,7 +407,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---------------- A1b: is the trade label predictable from causal inputs at all?
     a1b = pd.concat(list(pool.map(a1b_day, val_days)), ignore_index=True)
-    feat_cols = [col for col in a1b.columns if col not in ("y", "day")]
+    feat_cols = [col for col in a1b.columns if col not in ("y", "ret", "day")]
     first = a1b.day < val_days[len(val_days) // 2]
     mu, sd = a1b.loc[first, feat_cols].mean(), a1b.loc[first, feat_cols].std().replace(0, 1)
     Z = ((a1b[feat_cols] - mu) / sd).clip(-10, 10).to_numpy()
@@ -419,6 +419,19 @@ def main(argv: list[str] | None = None) -> int:
                 {"sample": "held-out half (last 23 days)", "AUC": fmt(auc(score[~first.to_numpy()], a1b.y.to_numpy()[~first.to_numpy()] > 0.5)),
                  "bars": f"{int((~first).sum()):,}"}]
     single = [{"feature": col, "AUC (all days)": fmt(auc(a1b[col].to_numpy(), a1b.y.to_numpy() > 0.5))} for col in feat_cols]
+    # Value of typing on the held-out half: follow or fade by the fitted classifier vs always follow.
+    held = ~first.to_numpy()
+    r_h, p_h = a1b.ret.to_numpy()[held] * 1e4, (1 / (1 + np.exp(-score)))[held]
+    cut10 = np.quantile(p_h, 0.10)
+    typing_rows = [
+        {"momentum strategy, held-out validation bars": "always follow (untyped)", "bp per trade": f"{r_h.mean():+.3f}", "trades faded": "0 %"},
+        {"momentum strategy, held-out validation bars": "fade when the classifier says reversion (p < 0.5)",
+         "bp per trade": f"{np.where(p_h >= 0.5, r_h, -r_h).mean():+.3f}", "trades faded": f"{np.mean(p_h < 0.5):.0%}"},
+        {"momentum strategy, held-out validation bars": "fade the 10 % most reversion-like bars",
+         "bp per trade": f"{np.where(p_h >= cut10, r_h, -r_h).mean():+.3f}", "trades faded": "10 %"},
+        {"momentum strategy, held-out validation bars": "oracle: true type known (not causal, upper bound)",
+         "bp per trade": f"{np.abs(r_h).mean():+.3f}", "trades faded": f"{np.mean(r_h < 0):.0%}"},
+    ]
 
     # ---------------- A2 / A3
     folds = list(pool.map(fold, *zip(*[(d, m) for m in ("paper", "improved") for d in val_days])))
@@ -550,6 +563,11 @@ this kind separates momentum from reversion, whatever teacher trains the network
 Single features:
 
 {markdown(pd.DataFrame(single))}
+
+Value of typing (fee-free, paper execution): how much a typed strategy could earn over always
+following if its type came from this classifier, compared with a perfect (non-causal) type.
+
+{markdown(pd.DataFrame(typing_rows))}
 
 ## A2 — pool check (tuned improved model, validation folds)
 
