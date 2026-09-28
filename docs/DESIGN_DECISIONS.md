@@ -503,6 +503,15 @@ only train what the inputs make predictable. Pool maps use quantile bins of the 
 probabilities (50/75/90/97 %). A4 uses seed-0 test signals and is reported for the critique only.
 Report: [docs/reports/typed_premise_checks.md](reports/typed_premise_checks.md).
 
+**I55 — VWAP smoothing check.** The vwap bars match the paper (non-overlapping blocks of `num`
+transactions, volume-weighted) and remove the bid-ask zig-zag (raw aggTrade changes: lag-1
+autocorrelation −0.52). Averaging itself creates lag-1 autocorrelation ≈ 0.23–0.25 in vwap
+differences (Working effect), which makes the paper's momentum label call about 54 % of bars of a
+pure random walk "momentum" — the paper's reported momentum share. Strategies and the typed-model
+trade label enter at t+1 and exit at t+4 and are not affected (random-walk win rate 50 %). No code
+change: the paper's smoothing is kept for the replication; the effect is reported.
+[docs/reports/vwap_smoothing_check.md](reports/vwap_smoothing_check.md).
+
 ### Planned (to be recorded in detail when implemented)
 
 - M10: in the Problem-2 AUC, "nearest event" means the event at bar `t`, else the next one,
