@@ -79,3 +79,21 @@ Run the tests:
 | M8 | R-STDP, improved model, E2, A1 | done — [E2 report](docs/reports/m8_e2_results.md), [head-to-head backtests](docs/reports/head_to_head.md) |
 | M9 | window experiments | |
 | M10 | analysis and comparison report | |
+
+## LOB project (branch `feature/lob-snn-benchmark` only)
+
+Price-trend prediction from limit-order-book data: DeepLOB replication on FI-2010, then
+DeepLOB as the baseline on Bybit BTCUSDT against LIF and BRF spiking recurrent networks.
+Decisions: [docs/DESIGN_DECISIONS_LOB.md](docs/DESIGN_DECISIONS_LOB.md); data retrieval:
+[docs/DATA_RETRIEVAL.md](docs/DATA_RETRIEVAL.md).
+
+| Milestone | Content | State |
+|---|---|---|
+| L0 | retrieval layer, 90 standardized Bybit days, quality report | in progress |
+| L1 | FI-2010 data, metrics, trainer | |
+| L2 | DeepLOB replication on FI-2010 (gate to Phase B) | |
+| L3 | LOB preprocessing | |
+| L4 | BTC baselines (gate to Phase C) | |
+| L5 | LIF and BRF cells, BRF validation | |
+| L6 | spiking models and twin on BTC and FI-2010 | |
+| L7 | cross-venue test, efficiency, ablations, report | |
