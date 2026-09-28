@@ -465,6 +465,11 @@ and test days) as `hawkes/<YYYY-MM-DD>.json` (§8.6): the ten parameters, event 
 branching matrix, log-likelihood per event, convergence, event count and fit days. The files are
 shared by the three rule directories of a job via hard links.
 
+Improved-model tuning (validation): [m8_tuning_improved.md](reports/m8_tuning_improved.md); only 4 of
+80 trials pass the health rule because the sparse Hawkes input often leaves the output nearly
+silent; the chosen trial sits at two grid corners (`new_mean` 0.3, threshold 32).
+E2, A1 and input-rate controls on the test period: [m8_e2_results.md](reports/m8_e2_results.md).
+
 **I53 — Model structure.** `HawkesRSTDPSignalModel` subclasses the shared `SNNSignalModel` and only
 supplies the Hawkes pipeline, the extended topology and the reward streams (`mom`, `rev`). It keeps
 one parameter provider for its lifetime, so θ_d is reused across folds.

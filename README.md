@@ -76,6 +76,6 @@ Run the tests:
 | M5 | strategies, backtester, E1 | done — [E1 report](docs/reports/m5_e1_baseline.md) |
 | M6 | Hawkes module | done — [real-data review](docs/reports/m6_hawkes_review.md) |
 | M7 | improved preprocessing | done — [check](docs/reports/m7_improved_preprocessing.md) |
-| M8 | R-STDP, improved model, E2, A1 | in progress |
+| M8 | R-STDP, improved model, E2, A1 | done — [E2 report](docs/reports/m8_e2_results.md) |
 | M9 | window experiments | |
 | M10 | analysis and comparison report | |
